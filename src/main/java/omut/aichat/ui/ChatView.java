@@ -169,7 +169,7 @@ public class ChatView implements ChatListener {
     private String format(AIChatMessage message) {
         return switch (message.role()) {
             case USER -> "You: " + message.text();
-            case ASSISTANT -> "AI: " + message.text();
+            case ASSISTANT -> "AI (" + session.currentModel() + "): " + message.text();
             case SYSTEM -> "System: " + message.text();
         };
     }
