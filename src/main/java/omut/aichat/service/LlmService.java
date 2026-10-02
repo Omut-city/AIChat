@@ -10,4 +10,7 @@ public interface LlmService {
     List<String> listModels();
     void switchModel(String modelName);
     String currentModel();
+    void setBaseUrl(String baseUrl);
+    String baseUrl();
+    String defaultBaseUrl();
 }

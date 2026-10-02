@@ -34,6 +34,7 @@ public class ChatView implements ChatListener {
         view.inputField.setOnAction(e -> onSend());
         view.clearButton.setOnAction(e -> session.clear());
         view.checkButton.setOnAction(e -> session.checkAvailability());
+        view.settingsButton.setOnAction(e -> onSettings());
         view.modelSelector.setOnAction(e -> {
             String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
@@ -158,4 +159,12 @@ public class ChatView implements ChatListener {
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
     }
 
+    private void onSettings() {
+        SettingsDialog dialog = new SettingsDialog(session.baseUrl(), session.defaultBaseUrl());
+        dialog.initOwner(view.chatArea.getScene().getWindow());
+        String newUrl = dialog.showAndWait().orElse(null);
+        if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(session.baseUrl())) {
+            session.setBaseUrl(newUrl);
+        }
+    }
 }

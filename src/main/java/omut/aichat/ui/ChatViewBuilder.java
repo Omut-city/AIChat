@@ -26,6 +26,7 @@ public class ChatViewBuilder {
     public final Button sendButton = new Button("Send");
     public final Button clearButton = new Button("Clear");
     public final Button checkButton = new Button("Check connection");
+    public final Button settingsButton = new Button("Settings");
     public final ComboBox<String> modelSelector = new ComboBox<>();
     public final Label statusLabel = new Label("Status: unknown");
     public final Label typingLabel = new Label("");
@@ -59,7 +60,8 @@ public class ChatViewBuilder {
                 spacer,
                 lastResponseLabel,
                 typingLabel,
-                checkButton
+                checkButton,
+                settingsButton
         );
         statusBar.setAlignment(Pos.CENTER_LEFT);
         statusBar.setPadding(new Insets(0, 10, 10, 10));

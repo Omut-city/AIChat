@@ -90,6 +90,10 @@ public class ChatSession {
         return llmService.currentModel();
     }
 
+    public String defaultBaseUrl() {
+        return llmService.defaultBaseUrl();
+    }
+
     public void clear() {
         history.clear();
         history.add(AIChatMessage.system(SYSTEM_PROMPT));
@@ -132,6 +136,22 @@ public class ChatSession {
             return "Request timed out. The model may be loading, try again.";
         }
         return msg;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+        executor.submit(() -> {
+            try {
+                llmService.setBaseUrl(baseUrl);
+                notifyMessage(AIChatMessage.system("Base URL set to: " + llmService.baseUrl()));
+                notifyStatus(llmService.isAvailable());
+            } catch (Exception e) {
+                notifyMessage(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
+            }
+        });
+    }
+
+    public String baseUrl() {
+        return llmService.baseUrl();
     }
 
     private void notifyCleared() {
