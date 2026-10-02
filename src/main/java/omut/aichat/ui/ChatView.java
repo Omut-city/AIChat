@@ -16,15 +16,7 @@ import java.util.List;
 public class ChatView implements ChatListener {
 
     private final ChatSession session;
-
-    private TextArea chatArea;
-    private TextField inputField;
-    private Button sendButton;
-    private Button clearButton;
-    private ComboBox<String> modelSelector;
-    private Label statusLabel;
-    private Label typingLabel;
-    private Label lastResponseLabel;
+    private final ChatViewBuilder view;
 
     private boolean busy = false;
     private boolean llmAvailable = false;
@@ -32,70 +24,24 @@ public class ChatView implements ChatListener {
     public ChatView(ChatSession session) {
         this.session = session;
         this.session.addListener(this);
+        this.view = new ChatViewBuilder();
     }
 
     public Parent build() {
-        chatArea = new TextArea();
-        chatArea.setEditable(false);
-        chatArea.setWrapText(true);
-        VBox.setVgrow(chatArea, Priority.ALWAYS);
+        Parent root = view.build();
 
-        inputField = new TextField();
-        inputField.setPromptText("Type a message and press Enter...");
-        HBox.setHgrow(inputField, Priority.ALWAYS);
-
-        sendButton = new Button("Send");
-        clearButton = new Button("Clear");
-
-        Button checkButton = new Button("Check connection");
-
-        HBox inputBox = new HBox(8, inputField, sendButton, clearButton);
-        inputBox.setPadding(new Insets(10));
-
-        statusLabel = new Label("Status: unknown");
-        statusLabel.setTextFill(Color.GRAY);
-        typingLabel = new Label("");
-        typingLabel.setTextFill(Color.DARKSLATEGRAY);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        modelSelector = new ComboBox<>();
-        modelSelector.setPromptText("Model");
-        modelSelector.setDisable(true);   // включим после загрузки списка
-        modelSelector.setOnAction(e -> {
-            String selected = modelSelector.getValue();
+        view.sendButton.setOnAction(e -> onSend());
+        view.inputField.setOnAction(e -> onSend());
+        view.clearButton.setOnAction(e -> session.clear());
+        view.checkButton.setOnAction(e -> session.checkAvailability());
+        view.modelSelector.setOnAction(e -> {
+            String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
                 session.switchModel(selected);
             }
         });
 
-        lastResponseLabel = new Label("");
-        lastResponseLabel.setTextFill(Color.DARKSLATEGRAY);
-
-        HBox statusBar = new HBox(
-                10,
-                statusLabel,
-                modelSelector,
-                spacer,
-                lastResponseLabel,
-                typingLabel,
-                checkButton
-        );
-
-        statusBar.setAlignment(Pos.CENTER_LEFT);
-        statusBar.setPadding(new Insets(0, 10, 10, 10));
-
-        sendButton.setOnAction(e -> onSend());
-        inputField.setOnAction(e -> onSend());
-        clearButton.setOnAction(e -> session.clear());
-        checkButton.setOnAction(e -> session.checkAvailability());
-
-        VBox root = new VBox(5, chatArea, inputBox, statusBar);
-        root.setPadding(new Insets(10));
-
         Platform.runLater(session::checkAvailability);
-
         return root;
     }
 
@@ -104,14 +50,14 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             llmAvailable = available;
             if (available) {
-                statusLabel.setText("Status: Ollama is available");
-                statusLabel.setTextFill(Color.SEAGREEN);
-                if (modelSelector.getItems().isEmpty()) {
+                view.statusLabel.setText("Status: Ollama is available");
+                view.statusLabel.setTextFill(Color.SEAGREEN);
+                if (view.modelSelector.getItems().isEmpty()) {
                     session.loadModels();
                 }
             } else {
-                statusLabel.setText("Status: Ollama is NOT available");
-                statusLabel.setTextFill(Color.CRIMSON);
+                view.statusLabel.setText("Status: Ollama is NOT available");
+                view.statusLabel.setTextFill(Color.CRIMSON);
             }
             updateControls();
         });
@@ -120,9 +66,9 @@ public class ChatView implements ChatListener {
     @Override
     public void onModelsLoaded(List<String> models) {
         Platform.runLater(() -> {
-            modelSelector.getItems().setAll(models);
+            view.modelSelector.getItems().setAll(models);
             if (!models.isEmpty()) {
-                modelSelector.setValue(session.currentModel());
+                view.modelSelector.setValue(session.currentModel());
             }
             updateControls();
         });
@@ -131,16 +77,16 @@ public class ChatView implements ChatListener {
     @Override
     public void onModelChanged(String modelName) {
         Platform.runLater(() -> {
-            statusLabel.setText("Status: Ollama is available  |  Model: " + modelName);
-            statusLabel.setTextFill(Color.SEAGREEN);
+            view.statusLabel.setText("Status: Ollama is available  |  Model: " + modelName);
+            view.statusLabel.setTextFill(Color.SEAGREEN);
         });
     }
 
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            chatArea.appendText(format(message) + "\n\n");
-            chatArea.setScrollTop(Double.MAX_VALUE);
+            view.chatArea.appendText(format(message) + "\n\n");
+            view.chatArea.setScrollTop(Double.MAX_VALUE);
         });
     }
 
@@ -148,7 +94,7 @@ public class ChatView implements ChatListener {
     public void onThinkingStarted() {
         Platform.runLater(() -> {
             busy = true;
-            typingLabel.setText("AI is thinking...");
+            view.typingLabel.setText("AI is thinking...");
             updateControls();
         });
     }
@@ -157,36 +103,36 @@ public class ChatView implements ChatListener {
     public void onThinkingFinished() {
         Platform.runLater(() -> {
             busy = false;
-            typingLabel.setText("");
+            view.typingLabel.setText("");
             updateControls();
-            inputField.requestFocus();
+            view.inputField.requestFocus();
         });
     }
 
     @Override
     public void onCleared() {
-        Platform.runLater(chatArea::clear);
+        Platform.runLater(view.chatArea::clear);
     }
 
     @Override
     public void onResponseTime(long millis) {
         Platform.runLater(() -> {
             if (millis < 1000) {
-                lastResponseLabel.setText("Last: " + millis + "ms");
+                view.lastResponseLabel.setText("Last: " + millis + "ms");
             } else {
-                lastResponseLabel.setText(String.format(java.util.Locale.US, "Last: %.1fs", millis / 1000.0));
+                view.lastResponseLabel.setText(String.format(java.util.Locale.US, "Last: %.1fs", millis / 1000.0));
             }
         });
     }
 
     public void focusInput() {
-        if (inputField != null) inputField.requestFocus();
+        view.inputField.requestFocus();
     }
 
     private void onSend() {
-        String text = inputField.getText();
+        String text = view.inputField.getText();
         if (text == null || text.isBlank()) return;
-        inputField.clear();
+        view.inputField.clear();
         session.send(text);
     }
 
@@ -206,10 +152,10 @@ public class ChatView implements ChatListener {
 
     private void updateControls() {
         boolean locked = busy || !llmAvailable;
-        inputField.setDisable(locked);
-        sendButton.setDisable(locked);
-        clearButton.setDisable(busy);
-        modelSelector.setDisable(locked || modelSelector.getItems().isEmpty());
+        view.inputField.setDisable(locked);
+        view.sendButton.setDisable(locked);
+        view.clearButton.setDisable(busy);
+        view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
     }
 
 }
