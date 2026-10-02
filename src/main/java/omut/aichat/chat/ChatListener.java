@@ -10,5 +10,6 @@ public interface ChatListener {
     void onCleared();
     void onModelsLoaded(List<String> models);
     void onModelChanged(String modelName);
+    void onResponseTime(long millis);
 
 }

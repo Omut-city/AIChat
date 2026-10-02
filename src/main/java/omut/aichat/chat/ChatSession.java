@@ -46,11 +46,14 @@ public class ChatSession {
         notifyThinkingStarted();
 
         executor.submit(() -> {
+            long start = System.nanoTime();
             try {
                 String replyText = llmService.ask(new ArrayList<>(history));
-                AIChatMessage reply = AIChatMessage.assistant(replyText);
+                long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+                AIChatMessage reply = AIChatMessage.assistant(replyText, elapsedMillis);
                 history.add(reply);
                 notifyMessage(reply);
+                notifyResponseTime(elapsedMillis);
             } catch (Exception e) {
                 AIChatMessage error = AIChatMessage.system(friendlyError(e));
                 history.add(error);
@@ -141,5 +144,9 @@ public class ChatSession {
 
     private void notifyModelChanged(String modelName) {
         listeners.forEach(l -> l.onModelChanged(modelName));
+    }
+
+    private void notifyResponseTime(long millis) {
+        listeners.forEach(l -> l.onResponseTime(millis));
     }
 }

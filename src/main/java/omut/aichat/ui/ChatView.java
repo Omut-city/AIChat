@@ -24,6 +24,7 @@ public class ChatView implements ChatListener {
     private ComboBox<String> modelSelector;
     private Label statusLabel;
     private Label typingLabel;
+    private Label lastResponseLabel;
 
     private boolean busy = false;
     private boolean llmAvailable = false;
@@ -69,7 +70,19 @@ public class ChatView implements ChatListener {
             }
         });
 
-        HBox statusBar = new HBox(10, statusLabel, modelSelector, spacer, typingLabel, checkButton);
+        lastResponseLabel = new Label("");
+        lastResponseLabel.setTextFill(Color.DARKSLATEGRAY);
+
+        HBox statusBar = new HBox(
+                10,
+                statusLabel,
+                modelSelector,
+                spacer,
+                lastResponseLabel,
+                typingLabel,
+                checkButton
+        );
+
         statusBar.setAlignment(Pos.CENTER_LEFT);
         statusBar.setPadding(new Insets(0, 10, 10, 10));
 
@@ -155,6 +168,17 @@ public class ChatView implements ChatListener {
         Platform.runLater(chatArea::clear);
     }
 
+    @Override
+    public void onResponseTime(long millis) {
+        Platform.runLater(() -> {
+            if (millis < 1000) {
+                lastResponseLabel.setText("Last: " + millis + "ms");
+            } else {
+                lastResponseLabel.setText(String.format(java.util.Locale.US, "Last: %.1fs", millis / 1000.0));
+            }
+        });
+    }
+
     public void focusInput() {
         if (inputField != null) inputField.requestFocus();
     }
@@ -169,7 +193,13 @@ public class ChatView implements ChatListener {
     private String format(AIChatMessage message) {
         return switch (message.role()) {
             case USER -> "You: " + message.text();
-            case ASSISTANT -> "AI (" + session.currentModel() + "): " + message.text();
+            case ASSISTANT -> String.format(
+                    java.util.Locale.US,
+                    "AI (%s, %.1fs): %s",
+                    session.currentModel(),
+                    message.durationMillis() / 1000.0,
+                    message.text()
+            );
             case SYSTEM -> "System: " + message.text();
         };
     }
