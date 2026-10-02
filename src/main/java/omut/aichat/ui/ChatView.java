@@ -11,6 +11,8 @@ import omut.aichat.chat.ChatListener;
 import omut.aichat.chat.ChatMessage;
 import omut.aichat.chat.ChatSession;
 
+import java.util.List;
+
 public class ChatView implements ChatListener {
 
     private final ChatSession session;
@@ -19,6 +21,7 @@ public class ChatView implements ChatListener {
     private TextField inputField;
     private Button sendButton;
     private Button clearButton;
+    private ComboBox<String> modelSelector;
     private Label statusLabel;
     private Label typingLabel;
 
@@ -56,7 +59,17 @@ public class ChatView implements ChatListener {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox statusBar = new HBox(10, statusLabel, spacer, typingLabel, checkButton);
+        modelSelector = new ComboBox<>();
+        modelSelector.setPromptText("Model");
+        modelSelector.setDisable(true);   // включим после загрузки списка
+        modelSelector.setOnAction(e -> {
+            String selected = modelSelector.getValue();
+            if (selected != null && !selected.equals(session.currentModel())) {
+                session.switchModel(selected);
+            }
+        });
+
+        HBox statusBar = new HBox(10, statusLabel, modelSelector, spacer, typingLabel, checkButton);
         statusBar.setAlignment(Pos.CENTER_LEFT);
         statusBar.setPadding(new Insets(0, 10, 10, 10));
 
@@ -71,6 +84,43 @@ public class ChatView implements ChatListener {
         Platform.runLater(session::checkAvailability);
 
         return root;
+    }
+
+    @Override
+    public void onStatusChanged(boolean available) {
+        Platform.runLater(() -> {
+            llmAvailable = available;
+            if (available) {
+                statusLabel.setText("Status: Ollama is available");
+                statusLabel.setTextFill(Color.SEAGREEN);
+                if (modelSelector.getItems().isEmpty()) {
+                    session.loadModels();
+                }
+            } else {
+                statusLabel.setText("Status: Ollama is NOT available");
+                statusLabel.setTextFill(Color.CRIMSON);
+            }
+            updateControls();
+        });
+    }
+
+    @Override
+    public void onModelsLoaded(List<String> models) {
+        Platform.runLater(() -> {
+            modelSelector.getItems().setAll(models);
+            if (!models.isEmpty()) {
+                modelSelector.setValue(session.currentModel());
+            }
+            updateControls();
+        });
+    }
+
+    @Override
+    public void onModelChanged(String modelName) {
+        Platform.runLater(() -> {
+            statusLabel.setText("Status: Ollama is available  |  Model: " + modelName);
+            statusLabel.setTextFill(Color.SEAGREEN);
+        });
     }
 
     @Override
@@ -97,21 +147,6 @@ public class ChatView implements ChatListener {
             typingLabel.setText("");
             updateControls();
             inputField.requestFocus();
-        });
-    }
-
-    @Override
-    public void onStatusChanged(boolean available) {
-        Platform.runLater(() -> {
-            llmAvailable = available;
-            if (available) {
-                statusLabel.setText("Status: Ollama is available");
-                statusLabel.setTextFill(Color.SEAGREEN);
-            } else {
-                statusLabel.setText("Status: Ollama is NOT available");
-                statusLabel.setTextFill(Color.CRIMSON);
-            }
-            updateControls();
         });
     }
 
@@ -144,6 +179,7 @@ public class ChatView implements ChatListener {
         inputField.setDisable(locked);
         sendButton.setDisable(locked);
         clearButton.setDisable(busy);
+        modelSelector.setDisable(locked || modelSelector.getItems().isEmpty());
     }
 
 }

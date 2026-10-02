@@ -15,7 +15,7 @@ public class AiChatApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        LlmService llmService = new OllamaLlmService();
+        LlmService llmService = new OllamaLlmService("llama3.1:8b");
         session = new ChatSession(llmService);
 
         ChatView view = new ChatView(session);

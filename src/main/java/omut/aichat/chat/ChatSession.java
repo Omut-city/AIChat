@@ -56,6 +56,32 @@ public class ChatSession {
         });
     }
 
+    public void loadModels() {
+        executor.submit(() -> {
+            List<String> models = llmService.listModels();
+            notifyModelsLoaded(models);
+        });
+    }
+
+    public void switchModel(String modelName) {
+        if (modelName == null || modelName.isBlank()) {
+            notifyMessage(ChatMessage.system("Invalid model name."));
+            return;
+        }
+        executor.submit(() -> {
+            try {
+                llmService.switchModel(modelName);
+                notifyModelChanged(modelName);
+            } catch (Exception e) {
+                notifyMessage(ChatMessage.system("Failed to switch model: " + e.getMessage()));
+            }
+        });
+    }
+
+    public String currentModel() {
+        return llmService.currentModel();
+    }
+
     public void clear() {
         history.clear();
         notifyCleared();
@@ -103,5 +129,13 @@ public class ChatSession {
 
     private void notifyCleared() {
         listeners.forEach(ChatListener::onCleared);
+    }
+
+    private void notifyModelsLoaded(List<String> models) {
+        listeners.forEach(l -> l.onModelsLoaded(models));
+    }
+
+    private void notifyModelChanged(String modelName) {
+        listeners.forEach(l -> l.onModelChanged(modelName));
     }
 }

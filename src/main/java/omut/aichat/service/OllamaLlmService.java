@@ -1,25 +1,32 @@
 package omut.aichat.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 public class OllamaLlmService implements LlmService {
 
     private static final String BASE_URL = "http://127.0.0.1:11434";
-    private static final String MODEL_NAME = "llama3.1:8b";
 
-    private final ChatLanguageModel model;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public OllamaLlmService() {
-        this.model = OllamaChatModel.builder()
-                .baseUrl(BASE_URL)
-                .modelName(MODEL_NAME)
-                .timeout(Duration.ofMinutes(5))
-                .build();
+    private ChatLanguageModel model;
+    private String currentModel;
+
+    public OllamaLlmService(String initialModel) {
+        switchModel(initialModel);
+    }
+
+    @Override
+    public String ask(String prompt) {
+        return model.generate(prompt);
     }
 
     @Override
@@ -39,7 +46,44 @@ public class OllamaLlmService implements LlmService {
     }
 
     @Override
-    public String ask(String userMessage) {
-        return model.generate(userMessage);
+    public List<String> listModels() {
+        List<String> result = new ArrayList<>();
+        try {
+            HttpURLConnection connection = (HttpURLConnection)
+                    URI.create(BASE_URL + "/api/tags").toURL().openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(2000);
+            connection.setReadTimeout(2000);
+
+            JsonNode root = MAPPER.readTree(connection.getInputStream());
+            for (JsonNode node : root.get("models")) {
+                result.add(node.get("name").asText());
+            }
+            connection.disconnect();
+        } catch (Exception e) {
+            // return empty list on failure
+        }
+        return result;
     }
+
+    @Override
+    public void switchModel(String modelName) {
+        if (modelName == null || modelName.isBlank()) {
+            throw new IllegalArgumentException("Model name must not be blank");
+        }
+        this.currentModel = modelName;
+        this.model = OllamaChatModel.builder()
+                .baseUrl(BASE_URL)
+                .modelName(modelName)
+                .timeout(Duration.ofMinutes(5))
+                .build();
+    }
+
+    @Override
+    public String currentModel() {
+        return currentModel;
+    }
+
+
+
 }
