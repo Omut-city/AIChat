@@ -34,6 +34,7 @@ public class ChatView implements ChatListener {
         view.inputField.setOnAction(e -> onSend());
         view.clearButton.setOnAction(e -> session.clear());
         view.checkButton.setOnAction(e -> session.checkAvailability());
+        view.promptButton.setOnAction(e -> onEditSystemPrompt());
         view.settingsButton.setOnAction(e -> onSettings());
         view.modelSelector.setOnAction(e -> {
             String selected = view.modelSelector.getValue();
@@ -157,6 +158,18 @@ public class ChatView implements ChatListener {
         view.sendButton.setDisable(locked);
         view.clearButton.setDisable(busy);
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
+    }
+
+    private void onEditSystemPrompt() {
+        SystemPromptDialog dialog = new SystemPromptDialog(
+                session.systemPrompt(),
+                session.defaultSystemPrompt()
+        );
+        dialog.initOwner(view.chatArea.getScene().getWindow());
+        String newPrompt = dialog.showAndWait().orElse(null);
+        if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(session.systemPrompt())) {
+            session.setSystemPrompt(newPrompt);
+        }
     }
 
     private void onSettings() {

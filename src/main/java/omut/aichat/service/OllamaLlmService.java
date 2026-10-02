@@ -121,4 +121,19 @@ public class OllamaLlmService implements LlmService {
     public String defaultBaseUrl() {
         return config.defaultBaseUrl();
     }
+
+    @Override
+    public String systemPrompt() {
+        return config.systemPrompt();
+    }
+
+    @Override
+    public void setSystemPrompt(String prompt) {
+        config.setSystemPrompt(prompt);
+    }
+
+    @Override
+    public String defaultSystemPrompt() {
+        return config.defaultSystemPrompt();
+    }
 }

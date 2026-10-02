@@ -16,13 +16,12 @@ public class ChatSession {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
-    private static final String SYSTEM_PROMPT =
-            "Ты — локальный офлайн-ассистент. Отвечай кратко, по делу, на русском языке. "
-                    + "Не выдумывай факты о себе.";
-
     public ChatSession(LlmService llmService) {
         this.llmService = llmService;
-        history.add(AIChatMessage.system(SYSTEM_PROMPT));
+        String prompt = llmService.systemPrompt();
+        if (!prompt.isBlank()) {
+            history.add(AIChatMessage.system(prompt));
+        }
     }
 
     public void addListener(ChatListener listener) {
@@ -96,7 +95,10 @@ public class ChatSession {
 
     public void clear() {
         history.clear();
-        history.add(AIChatMessage.system(SYSTEM_PROMPT));
+        String prompt = llmService.systemPrompt();
+        if (!prompt.isBlank()) {
+            history.add(AIChatMessage.system(prompt));
+        }
         notifyCleared();
         notifyMessage(AIChatMessage.system("Chat cleared."));
     }
@@ -148,6 +150,38 @@ public class ChatSession {
                 notifyMessage(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
             }
         });
+    }
+
+    public void setSystemPrompt(String prompt) {
+        executor.submit(() -> {
+            try {
+                llmService.setSystemPrompt(prompt);
+                String updated = llmService.systemPrompt();
+                boolean hasSystem = !history.isEmpty()
+                        && history.getFirst().role() == AIChatMessage.Role.SYSTEM;
+
+                if (updated.isBlank()) {
+                    if (hasSystem) history.removeFirst();
+                } else {
+                    if (hasSystem) {
+                        history.set(0, AIChatMessage.system(updated));
+                    } else {
+                        history.addFirst(AIChatMessage.system(updated));
+                    }
+                }
+                notifyMessage(AIChatMessage.system("System prompt updated."));
+            } catch (Exception e) {
+                notifyMessage(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
+            }
+        });
+    }
+
+    public String systemPrompt() {
+        return llmService.systemPrompt();
+    }
+
+    public String defaultSystemPrompt() {
+        return llmService.defaultSystemPrompt();
     }
 
     public String baseUrl() {

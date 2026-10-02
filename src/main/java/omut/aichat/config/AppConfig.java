@@ -2,6 +2,9 @@ package omut.aichat.config;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 public class AppConfig {
@@ -12,17 +15,22 @@ public class AppConfig {
     private static final String PROPERTIES_FILE = "/application.properties";
 
     private final Properties properties = new Properties();
+
     private String baseUrl;
+    private String systemPrompt;
 
     public AppConfig() {
         load();
         this.baseUrl = properties.getProperty("ollama.base.url", DEFAULT_BASE_URL);
+        this.systemPrompt = properties.getProperty("chat.system.prompt", "");
     }
 
     private void load() {
         try (InputStream in = AppConfig.class.getResourceAsStream(PROPERTIES_FILE)) {
             if (in != null) {
-                properties.load(in);
+                try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                    properties.load(reader);
+                }
             }
         } catch (IOException e) {
             // Fall back to defaults; properties file is optional
@@ -72,4 +80,19 @@ public class AppConfig {
     public int windowHeight() {
         return Integer.parseInt(properties.getProperty("app.window.height", "540"));
     }
+
+    public String systemPrompt() { return systemPrompt; }
+
+    public void setSystemPrompt(String prompt) {
+        if (prompt == null || prompt.isBlank()) {
+            this.systemPrompt = defaultSystemPrompt();
+        } else {
+            this.systemPrompt = prompt.trim();
+        }
+    }
+
+    public String defaultSystemPrompt() {
+        return properties.getProperty("chat.system.prompt", "");
+    }
+
 }

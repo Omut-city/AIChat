@@ -13,4 +13,7 @@ public interface LlmService {
     void setBaseUrl(String baseUrl);
     String baseUrl();
     String defaultBaseUrl();
+    String systemPrompt();
+    void setSystemPrompt(String prompt);
+    String defaultSystemPrompt();
 }
