@@ -95,4 +95,8 @@ public class AppConfig {
         return properties.getProperty("chat.system.prompt", "");
     }
 
+    public int historyMaxMessages() {
+        int value = Integer.parseInt(properties.getProperty("chat.history.max.messages", "20"));
+        return Math.max(2, value);
+    }
 }

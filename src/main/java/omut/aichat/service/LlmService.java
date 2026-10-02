@@ -16,4 +16,5 @@ public interface LlmService {
     String systemPrompt();
     void setSystemPrompt(String prompt);
     String defaultSystemPrompt();
+    int historyMaxMessages();
 }

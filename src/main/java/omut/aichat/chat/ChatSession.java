@@ -47,7 +47,7 @@ public class ChatSession {
         executor.submit(() -> {
             long start = System.nanoTime();
             try {
-                String replyText = llmService.ask(new ArrayList<>(history));
+                String replyText = llmService.ask(buildRequestHistory());
                 long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
                 AIChatMessage reply = AIChatMessage.assistant(replyText, elapsedMillis);
                 history.add(reply);
@@ -202,5 +202,27 @@ public class ChatSession {
 
     private void notifyResponseTime(long millis) {
         listeners.forEach(l -> l.onResponseTime(millis));
+    }
+
+    private List<AIChatMessage> buildRequestHistory() {
+        int max = llmService.historyMaxMessages();
+        int total = history.size();
+        if (total <= max) {
+            return new ArrayList<>(history);
+        }
+
+        List<AIChatMessage> trimmed = new ArrayList<>();
+
+        int startIndex = 0;
+        if (!history.isEmpty() && history.getFirst().role() == AIChatMessage.Role.SYSTEM) {
+            trimmed.add(history.getFirst());
+            startIndex = 1;
+        }
+
+        int keep = max - trimmed.size();
+        int from = Math.max(startIndex, total - keep);
+        trimmed.addAll(history.subList(from, total));
+
+        return trimmed;
     }
 }

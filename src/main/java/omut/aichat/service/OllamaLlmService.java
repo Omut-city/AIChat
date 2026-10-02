@@ -136,4 +136,9 @@ public class OllamaLlmService implements LlmService {
     public String defaultSystemPrompt() {
         return config.defaultSystemPrompt();
     }
+
+    @Override
+    public int historyMaxMessages() {
+        return config.historyMaxMessages();
+    }
 }
