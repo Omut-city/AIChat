@@ -11,20 +11,25 @@ import java.util.concurrent.Executors;
 public class ChatSession {
 
     private final LlmService llmService;
-    private final List<ChatMessage> history = new ArrayList<>();
+    private final List<AIChatMessage> history = new ArrayList<>();
     private final List<ChatListener> listeners = new ArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
+    private static final String SYSTEM_PROMPT =
+            "Ты — локальный офлайн-ассистент. Отвечай кратко, по делу, на русском языке. "
+                    + "Не выдумывай факты о себе.";
+
     public ChatSession(LlmService llmService) {
         this.llmService = llmService;
+        history.add(AIChatMessage.system(SYSTEM_PROMPT));
     }
 
     public void addListener(ChatListener listener) {
         listeners.add(listener);
     }
 
-    public List<ChatMessage> getHistory() {
+    public List<AIChatMessage> getHistory() {
         return Collections.unmodifiableList(history);
     }
 
@@ -35,19 +40,19 @@ public class ChatSession {
     public void send(String userText) {
         if (userText == null || userText.isBlank()) return;
 
-        ChatMessage userMessage = ChatMessage.user(userText.trim());
+        AIChatMessage userMessage = AIChatMessage.user(userText.trim());
         history.add(userMessage);
         notifyMessage(userMessage);
         notifyThinkingStarted();
 
         executor.submit(() -> {
             try {
-                String replyText = llmService.ask(userText);
-                ChatMessage reply = ChatMessage.assistant(replyText);
+                String replyText = llmService.ask(new ArrayList<>(history));
+                AIChatMessage reply = AIChatMessage.assistant(replyText);
                 history.add(reply);
                 notifyMessage(reply);
             } catch (Exception e) {
-                ChatMessage error = ChatMessage.system(friendlyError(e));
+                AIChatMessage error = AIChatMessage.system(friendlyError(e));
                 history.add(error);
                 notifyMessage(error);
             } finally {
@@ -65,7 +70,7 @@ public class ChatSession {
 
     public void switchModel(String modelName) {
         if (modelName == null || modelName.isBlank()) {
-            notifyMessage(ChatMessage.system("Invalid model name."));
+            notifyMessage(AIChatMessage.system("Invalid model name."));
             return;
         }
         executor.submit(() -> {
@@ -73,7 +78,7 @@ public class ChatSession {
                 llmService.switchModel(modelName);
                 notifyModelChanged(modelName);
             } catch (Exception e) {
-                notifyMessage(ChatMessage.system("Failed to switch model: " + e.getMessage()));
+                notifyMessage(AIChatMessage.system("Failed to switch model: " + e.getMessage()));
             }
         });
     }
@@ -84,17 +89,16 @@ public class ChatSession {
 
     public void clear() {
         history.clear();
+        history.add(AIChatMessage.system(SYSTEM_PROMPT));
         notifyCleared();
-        ChatMessage msg = ChatMessage.system("Chat cleared.");
-        history.add(msg);
-        notifyMessage(msg);
+        notifyMessage(AIChatMessage.system("Chat cleared."));
     }
 
     public void shutdown() {
         executor.shutdownNow();
     }
 
-    private void notifyMessage(ChatMessage m) {
+    private void notifyMessage(AIChatMessage m) {
         listeners.forEach(l -> l.onMessage(m));
     }
 

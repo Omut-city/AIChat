@@ -2,8 +2,13 @@ package omut.aichat.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import omut.aichat.chat.AIChatMessage;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -25,8 +30,13 @@ public class OllamaLlmService implements LlmService {
     }
 
     @Override
-    public String ask(String prompt) {
-        return model.generate(prompt);
+    public String ask(List<AIChatMessage> conversation) {
+        List<ChatMessage> messages = new ArrayList<>();
+        for (AIChatMessage msg : conversation) {
+            messages.add(toLangchainMessage(msg));
+        }
+        AiMessage reply = model.generate(messages).content();
+        return reply.text();
     }
 
     @Override
@@ -84,6 +94,13 @@ public class OllamaLlmService implements LlmService {
         return currentModel;
     }
 
+    private ChatMessage toLangchainMessage(AIChatMessage msg) {
+        return switch (msg.role()) {
+            case USER -> UserMessage.from(msg.text());
+            case ASSISTANT -> AiMessage.from(msg.text());
+            case SYSTEM -> SystemMessage.from(msg.text());
+        };
+    }
 
 
 }

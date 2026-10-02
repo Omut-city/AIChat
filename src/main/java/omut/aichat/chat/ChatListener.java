@@ -3,7 +3,7 @@ package omut.aichat.chat;
 import java.util.List;
 
 public interface ChatListener {
-    void onMessage(ChatMessage message);
+    void onMessage(AIChatMessage message);
     void onThinkingStarted();
     void onThinkingFinished();
     void onStatusChanged(boolean available);

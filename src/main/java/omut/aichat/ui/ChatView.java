@@ -8,7 +8,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import omut.aichat.chat.ChatListener;
-import omut.aichat.chat.ChatMessage;
+import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatSession;
 
 import java.util.List;
@@ -124,7 +124,7 @@ public class ChatView implements ChatListener {
     }
 
     @Override
-    public void onMessage(ChatMessage message) {
+    public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
             chatArea.appendText(format(message) + "\n\n");
             chatArea.setScrollTop(Double.MAX_VALUE);
@@ -166,7 +166,7 @@ public class ChatView implements ChatListener {
         session.send(text);
     }
 
-    private String format(ChatMessage message) {
+    private String format(AIChatMessage message) {
         return switch (message.role()) {
             case USER -> "You: " + message.text();
             case ASSISTANT -> "AI: " + message.text();
