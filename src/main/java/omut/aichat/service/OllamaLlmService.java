@@ -7,14 +7,14 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.time.Duration;
 
-public class LocalLlmService {
+public class OllamaLlmService implements LlmService {
 
     private static final String BASE_URL = "http://127.0.0.1:11434";
     private static final String MODEL_NAME = "llama3.1:8b";
 
     private final ChatLanguageModel model;
 
-    public LocalLlmService() {
+    public OllamaLlmService() {
         this.model = OllamaChatModel.builder()
                 .baseUrl(BASE_URL)
                 .modelName(MODEL_NAME)
@@ -22,9 +22,7 @@ public class LocalLlmService {
                 .build();
     }
 
-    /**
-     * Lightweight check whether Ollama server is reachable.
-     */
+    @Override
     public boolean isAvailable() {
         try {
             HttpURLConnection connection = (HttpURLConnection)
@@ -40,6 +38,7 @@ public class LocalLlmService {
         }
     }
 
+    @Override
     public String ask(String userMessage) {
         return model.generate(userMessage);
     }
