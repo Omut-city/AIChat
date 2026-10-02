@@ -1,5 +1,6 @@
 package omut.aichat.ui;
 
+import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -7,13 +8,22 @@ import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import javafx.stage.FileChooser;
+import javafx.util.Duration;
+import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatSession;
 
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ChatView implements ChatListener {
+
+    private PauseTransition noticeTimer;
 
     private final ChatSession session;
     private final ChatViewBuilder view;
@@ -35,6 +45,7 @@ public class ChatView implements ChatListener {
         view.clearButton.setOnAction(e -> session.clear());
         view.checkButton.setOnAction(e -> session.checkAvailability());
         view.promptButton.setOnAction(e -> onEditSystemPrompt());
+        view.saveButton.setOnAction(e -> onSave());
         view.settingsButton.setOnAction(e -> onSettings());
         view.modelSelector.setOnAction(e -> {
             String selected = view.modelSelector.getValue();
@@ -113,7 +124,10 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onCleared() {
-        Platform.runLater(view.chatArea::clear);
+        Platform.runLater(() -> {
+            view.chatArea.clear();
+            view.noticeLabel.setText("");
+        });
     }
 
     @Override
@@ -157,6 +171,7 @@ public class ChatView implements ChatListener {
         view.inputField.setDisable(locked);
         view.sendButton.setDisable(locked);
         view.clearButton.setDisable(busy);
+        view.saveButton.setDisable(busy);
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
     }
 
@@ -179,5 +194,47 @@ public class ChatView implements ChatListener {
         if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(session.baseUrl())) {
             session.setBaseUrl(newUrl);
         }
+    }
+
+    private void onSave() {
+        List<AIChatMessage> history = new ArrayList<>(session.getHistory());
+        if (history.isEmpty()) {
+            return;
+        }
+
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save conversation");
+        chooser.setInitialFileName(defaultFileName());
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Markdown (*.md)", "*.md"));
+
+        File file = chooser.showSaveDialog(view.chatArea.getScene().getWindow());
+        if (file == null) return;
+
+        try {
+            ChatExporter.exportMarkdown(history, file.toPath());
+            showNotice("Saved: " + file.getName(), Color.SEAGREEN);
+        } catch (IOException e) {
+            showNotice("Save failed: " + e.getMessage(), Color.CRIMSON);
+        }
+    }
+
+    private String defaultFileName() {
+        String model = session.currentModel().replace(":", "-");
+        return "chat-" + model + "-" + LocalDate.now() + ".md";
+    }
+
+    private void showNotice(String text, Color color) {
+        Platform.runLater(() -> {
+            view.noticeLabel.setText(text);
+            view.noticeLabel.setTextFill(color);
+
+            if (noticeTimer != null) {
+                noticeTimer.stop();
+            }
+            noticeTimer = new PauseTransition(Duration.seconds(3));
+            noticeTimer.setOnFinished(e -> view.noticeLabel.setText(""));
+            noticeTimer.play();
+        });
     }
 }

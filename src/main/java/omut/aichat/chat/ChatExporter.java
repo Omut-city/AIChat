@@ -1,0 +1,49 @@
+package omut.aichat.chat;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
+public class ChatExporter {
+
+    private static final DateTimeFormatter TIMESTAMP =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /** Exports the conversation to a Markdown file. */
+    public static void exportMarkdown(List<AIChatMessage> history, Path file) throws IOException {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("# AIChat conversation\n\n");
+        sb.append("Exported: ").append(LocalDateTime.now().format(TIMESTAMP)).append("\n\n");
+        sb.append("---\n\n");
+
+        for (AIChatMessage msg : history) {
+            switch (msg.role()) {
+                case USER -> {
+                    sb.append("## You\n\n");
+                    sb.append(msg.text()).append("\n\n");
+                }
+                case ASSISTANT -> {
+                    sb.append("## AI\n\n");
+                    if (msg.durationMillis() > 0) {
+                        sb.append("_").append(formatDuration(msg.durationMillis())).append("_\n\n");
+                    }
+                    sb.append(msg.text()).append("\n\n");
+                }
+                case SYSTEM -> {
+                    sb.append("> ").append(msg.text()).append("\n\n");
+                }
+            }
+        }
+
+        Files.writeString(file, sb.toString());
+    }
+
+    private static String formatDuration(long millis) {
+        if (millis < 1000) return millis + " ms";
+        return String.format(java.util.Locale.US, "%.1f s", millis / 1000.0);
+    }
+}

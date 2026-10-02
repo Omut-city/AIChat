@@ -28,10 +28,12 @@ public class ChatViewBuilder {
     public final Button checkButton = new Button("Check connection");
     public final Button settingsButton = new Button("Settings");
     public final Button promptButton = new Button("Prompt");
+    public final Button saveButton = new Button("Save");
     public final ComboBox<String> modelSelector = new ComboBox<>();
     public final Label statusLabel = new Label("Status: unknown");
     public final Label typingLabel = new Label("");
     public final Label lastResponseLabel = new Label("");
+    public final Label noticeLabel = new Label("");
 
     public Parent build() {
         chatArea.setEditable(false);
@@ -44,6 +46,7 @@ public class ChatViewBuilder {
         HBox inputBox = new HBox(8, inputField, sendButton, clearButton);
         inputBox.setPadding(new Insets(10));
 
+        noticeLabel.setTextFill(Color.DARKSLATEGRAY);
         statusLabel.setTextFill(Color.GRAY);
         typingLabel.setTextFill(Color.DARKSLATEGRAY);
         lastResponseLabel.setTextFill(Color.DARKSLATEGRAY);
@@ -60,7 +63,9 @@ public class ChatViewBuilder {
                 modelSelector,
                 spacer,
                 lastResponseLabel,
+                noticeLabel,
                 typingLabel,
+                saveButton,
                 checkButton,
                 promptButton,
                 settingsButton
