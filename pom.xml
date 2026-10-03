@@ -97,7 +97,7 @@
                 <configuration>
                     <mainClass>omut.aichat/omut.aichat.AiChatApp</mainClass>
                     <options>
-                        <option>--enable-native-access=javafx.graphics</option>
+                        <option>--enable-native-access=javafx.graphics,javafx.web</option>
                     </options>
                 </configuration>
             </plugin>

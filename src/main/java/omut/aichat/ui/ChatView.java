@@ -2,6 +2,7 @@ package omut.aichat.ui;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
+import javafx.concurrent.Worker;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -57,6 +58,13 @@ public class ChatView implements ChatListener {
                 session.switchModel(selected);
             }
         });
+        view.chatView.getEngine().getLoadWorker().stateProperty().addListener(
+                (obs, oldState, newState) -> {
+                    if (newState == Worker.State.SUCCEEDED) {
+                        view.chatView.getEngine().executeScript(
+                                "window.scrollTo(0, document.body.scrollHeight);");
+                    }
+                });
 
         Platform.runLater(session::checkAvailability);
         return root;
@@ -267,14 +275,7 @@ public class ChatView implements ChatListener {
 
     private void renderMarkdown() {
         String html = markdownRenderer.render(markdownParser.parse(markdownHistory.toString()));
-        String page = wrapInHtml(html);
-        view.chatView.getEngine().loadContent(page);
-        scrollToBottom();
-    }
-
-    private void scrollToBottom() {
-        Platform.runLater(() ->
-                view.chatView.getEngine().executeScript("window.scrollTo(0, document.body.scrollHeight);"));
+        view.chatView.getEngine().loadContent(wrapInHtml(html));
     }
 
     private String wrapInHtml(String body) {
@@ -282,6 +283,9 @@ public class ChatView implements ChatListener {
         <html>
         <head>
         <meta charset="UTF-8">
+        <link rel="stylesheet"
+              href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
+        <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
         <style>
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -290,7 +294,6 @@ public class ChatView implements ChatListener {
             color: #222;
         }
         pre {
-            background: #f4f4f4;
             padding: 8px;
             border-radius: 4px;
             overflow-x: auto;
@@ -309,6 +312,7 @@ public class ChatView implements ChatListener {
         </head>
         <body>
         """ + body + """
+        <script>hljs.highlightAll();</script>
         </body>
         </html>
         """;

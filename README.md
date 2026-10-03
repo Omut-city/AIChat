@@ -119,7 +119,7 @@ Or, in IntelliJ IDEA, run the Launcher class directly.
 
 Two JVM flags are recommended when running the app:
 
-- `--enable-native-access=javafx.graphics` — required by JDK 24+ for JavaFX's native calls.
+- `--enable-native-access=javafx.graphics,javafx.web` — required by JDK 24+ for JavaFX's native calls.
   Without it, the JVM prints a "restricted method" warning on startup.
 - `-Dorg.slf4j.simpleLogger.defaultLogLevel=debug` — enables debug logs.
   Optional; useful when troubleshooting.
