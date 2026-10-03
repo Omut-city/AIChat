@@ -150,6 +150,17 @@ public class ChatView implements ChatListener {
         });
     }
 
+    @Override
+    public void onTokensPerSecond(double tps) {
+        Platform.runLater(() -> {
+            if (tps > 0) {
+                view.speedLabel.setText(String.format(java.util.Locale.US, "%.1f tok/s", tps));
+            } else {
+                view.speedLabel.setText("");
+            }
+        });
+    }
+
     public void focusInput() {
         view.inputField.requestFocus();
     }

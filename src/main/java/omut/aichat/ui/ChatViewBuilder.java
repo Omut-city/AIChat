@@ -34,6 +34,7 @@ public class ChatViewBuilder {
     public final Label statusLabel = new Label("Status: unknown");
     public final Label typingLabel = new Label("");
     public final Label lastResponseLabel = new Label("");
+    public final Label speedLabel = new Label("");
     public final Label noticeLabel = new Label("");
 
     public Parent build() {
@@ -64,6 +65,7 @@ public class ChatViewBuilder {
                 modelSelector,
                 spacer,
                 lastResponseLabel,
+                speedLabel,
                 noticeLabel,
                 typingLabel,
                 saveButton,

@@ -8,8 +8,12 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.model.output.Response;
 import omut.aichat.chat.AIChatMessage;
+import omut.aichat.chat.LlmResponse;
 import omut.aichat.config.AppConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -19,6 +23,7 @@ import java.util.List;
 
 public class OllamaLlmService implements LlmService {
 
+    private static final Logger log = LoggerFactory.getLogger(OllamaLlmService.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final AppConfig config;
@@ -31,13 +36,27 @@ public class OllamaLlmService implements LlmService {
     }
 
     @Override
-    public String ask(List<AIChatMessage> conversation) {
+    public LlmResponse ask(List<AIChatMessage> conversation) {
         List<ChatMessage> messages = new ArrayList<>();
         for (AIChatMessage msg : conversation) {
             messages.add(toLangchainMessage(msg));
         }
-        AiMessage reply = model.generate(messages).content();
-        return reply.text();
+
+        long start = System.nanoTime();
+        Response<AiMessage> response = model.generate(messages);
+        long elapsedNanos = System.nanoTime() - start;
+
+        AiMessage ai = response.content();
+        int outputTokens = response.tokenUsage() != null
+                ? response.tokenUsage().outputTokenCount()
+                : 0;
+
+        return new LlmResponse(
+                ai.text(),
+                elapsedNanos / 1_000_000,
+                outputTokens,
+                elapsedNanos
+        );
     }
 
     @Override

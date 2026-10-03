@@ -52,17 +52,18 @@ public class ChatSession {
         currentRequest = executor.submit(() -> {
             long start = System.nanoTime();
             try {
-                String replyText = llmService.ask(buildRequestHistory());
+                LlmResponse reply = llmService.ask(buildRequestHistory());
                 long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
 
                 if (currentRequestCancelled) {
                     return;
                 }
 
-                AIChatMessage reply = AIChatMessage.assistant(replyText, elapsedMillis);
-                history.add(reply);
-                notifyMessage(reply);
+                AIChatMessage assistantMessage = AIChatMessage.assistant(reply.text(), reply.durationMillis());
+                history.add(assistantMessage);
+                notifyMessage(assistantMessage);
                 notifyResponseTime(elapsedMillis);
+                notifyTokensPerSecond(reply.tokensPerSecond());
             } catch (Exception e) {
                 if (currentRequestCancelled) return;
                 AIChatMessage error = AIChatMessage.system(friendlyError(e));
@@ -229,6 +230,10 @@ public class ChatSession {
 
     private void notifyResponseTime(long millis) {
         listeners.forEach(l -> l.onResponseTime(millis));
+    }
+
+    private void notifyTokensPerSecond(double tps) {
+        listeners.forEach(l -> l.onTokensPerSecond(tps));
     }
 
     private void notifyRequestCancelled() {

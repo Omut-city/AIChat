@@ -1,11 +1,12 @@
 package omut.aichat.service;
 
 import omut.aichat.chat.AIChatMessage;
+import omut.aichat.chat.LlmResponse;
 
 import java.util.List;
 
 public interface LlmService {
-    String ask(List<AIChatMessage> conversation);
+    LlmResponse ask(List<AIChatMessage> conversation);
     boolean isAvailable();
     List<String> listModels();
     void switchModel(String modelName);

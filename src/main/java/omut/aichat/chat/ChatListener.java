@@ -12,5 +12,5 @@ public interface ChatListener {
     void onModelChanged(String modelName);
     void onResponseTime(long millis);
     void onRequestCancelled();
-
+    void onTokensPerSecond(double tps);
 }
