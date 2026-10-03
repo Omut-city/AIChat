@@ -1,6 +1,7 @@
 package omut.aichat.ui;
 
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -18,8 +19,7 @@ public class SettingsDialog extends Dialog<String> {
         HBox.setHgrow(urlField, Priority.ALWAYS);
 
         Button resetButton = new Button("Reset");
-        resetButton.setOnAction(e ->
-                urlField.setText(defaultBaseUrl));
+        resetButton.setOnAction(e -> urlField.setText(defaultBaseUrl));
 
         HBox urlBox = new HBox(8, urlField, resetButton);
 
@@ -31,6 +31,18 @@ public class SettingsDialog extends Dialog<String> {
 
         getDialogPane().setContent(content);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        Node okButton = getDialogPane().lookupButton(ButtonType.OK);
+        urlField.textProperty().addListener((obs, oldValue, newValue) -> {
+            boolean valid = normalizeBaseUrl(newValue) != null;
+            okButton.setDisable(!valid);
+            urlField.setStyle(valid
+                    ? ""
+                    : "-fx-border-color: crimson; -fx-border-width: 1;");
+        });
+
+        boolean initialValid = normalizeBaseUrl(currentBaseUrl) != null;
+        okButton.setDisable(!initialValid);
 
         setResultConverter(button -> {
             if (button != ButtonType.OK) return null;
