@@ -162,4 +162,19 @@ public class OllamaLlmService implements LlmService {
     public int historyMaxMessages() {
         return config.historyMaxMessages();
     }
+
+    @Override
+    public String highlightJsPath() {
+        return config.highlightJsPath();
+    }
+
+    @Override
+    public String highlightCssPath() {
+        return config.highlightCssPath();
+    }
+
+    @Override
+    public String chatTemplatePath() {
+        return config.chatTemplatePath();
+    }
 }

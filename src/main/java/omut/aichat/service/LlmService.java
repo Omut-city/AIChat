@@ -18,4 +18,7 @@ public interface LlmService {
     void setSystemPrompt(String prompt);
     String defaultSystemPrompt();
     int historyMaxMessages();
+    String highlightJsPath();
+    String highlightCssPath();
+    String chatTemplatePath();
 }

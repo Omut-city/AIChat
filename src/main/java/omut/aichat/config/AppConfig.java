@@ -118,4 +118,16 @@ public class AppConfig {
         int value = Integer.parseInt(properties.getProperty("chat.history.max.messages", "20"));
         return Math.max(2, value);
     }
+
+    public String highlightJsPath() {
+        return properties.getProperty("highlight.js.path", "/highlight/highlight.min.js");
+    }
+
+    public String highlightCssPath() {
+        return properties.getProperty("highlight.css.path", "/highlight/github.min.css");
+    }
+
+    public String chatTemplatePath() {
+        return properties.getProperty("chat.template.path", "/templates/chat.html");
+    }
 }

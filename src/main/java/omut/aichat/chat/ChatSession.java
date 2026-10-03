@@ -216,6 +216,18 @@ public class ChatSession {
         return llmService.baseUrl();
     }
 
+    public String highlightJsPath() {
+        return llmService.highlightJsPath();
+    }
+
+    public String highlightCssPath() {
+        return llmService.highlightCssPath();
+    }
+
+    public String chatTemplatePath() {
+        return llmService.chatTemplatePath();
+    }
+
     private void notifyCleared() {
         listeners.forEach(ChatListener::onCleared);
     }

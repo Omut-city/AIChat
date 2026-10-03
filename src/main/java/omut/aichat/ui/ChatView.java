@@ -31,6 +31,7 @@ public class ChatView implements ChatListener {
     private final StringBuilder markdownHistory = new StringBuilder();
     private final Parser markdownParser = Parser.builder().build();
     private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().build();
+    private HtmlTemplate htmlTemplate;
 
     private boolean busy = false;
     private boolean llmAvailable = false;
@@ -278,43 +279,16 @@ public class ChatView implements ChatListener {
         view.chatView.getEngine().loadContent(wrapInHtml(html));
     }
 
+    private HtmlTemplate template() {
+        if (htmlTemplate == null) {
+            htmlTemplate = new HtmlTemplate(session.chatTemplatePath());
+        }
+        return htmlTemplate;
+    }
+
     private String wrapInHtml(String body) {
-        return """
-        <html>
-        <head>
-        <meta charset="UTF-8">
-        <link rel="stylesheet"
-              href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css">
-        <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
-        <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 14px;
-            margin: 12px;
-            color: #222;
-        }
-        pre {
-            padding: 8px;
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-        code {
-            font-family: 'Consolas', monospace;
-            font-size: 13px;
-        }
-        blockquote {
-            border-left: 3px solid #ccc;
-            margin-left: 0;
-            padding-left: 10px;
-            color: #555;
-        }
-        </style>
-        </head>
-        <body>
-        """ + body + """
-        <script>hljs.highlightAll();</script>
-        </body>
-        </html>
-        """;
+        String css = HtmlTemplate.readResource(session.highlightCssPath());
+        String js = HtmlTemplate.readResource(session.highlightJsPath());
+        return template().render(css, js, body);
     }
 }
