@@ -15,14 +15,15 @@ public class AppConfig {
     private static final String PROPERTIES_FILE = "/application.properties";
 
     private final Properties properties = new Properties();
+    private final UserConfig userConfig = new UserConfig();
 
     private String baseUrl;
     private String systemPrompt;
 
     public AppConfig() {
         load();
-        this.baseUrl = properties.getProperty("ollama.base.url", DEFAULT_BASE_URL);
-        this.systemPrompt = properties.getProperty("chat.system.prompt", "");
+        this.baseUrl = resolveBaseUrl();
+        this.systemPrompt = resolveSystemPrompt();
     }
 
     private void load() {
@@ -44,13 +45,11 @@ public class AppConfig {
     public void setBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
             this.baseUrl = defaultBaseUrl();
+            userConfig.setBaseUrl(null);
         } else {
             this.baseUrl = baseUrl.trim();
+            userConfig.setBaseUrl(this.baseUrl);
         }
-    }
-
-    public void resetToDefault() {
-        this.baseUrl = defaultBaseUrl();
     }
 
     public String defaultBaseUrl() {
@@ -81,17 +80,37 @@ public class AppConfig {
         return Integer.parseInt(properties.getProperty("app.window.height", "540"));
     }
 
-    public String systemPrompt() { return systemPrompt; }
+    public String systemPrompt() {
+        return systemPrompt;
+    }
 
     public void setSystemPrompt(String prompt) {
         if (prompt == null || prompt.isBlank()) {
             this.systemPrompt = defaultSystemPrompt();
+            userConfig.setSystemPrompt(null);
         } else {
             this.systemPrompt = prompt.trim();
+            userConfig.setSystemPrompt(this.systemPrompt);
         }
     }
 
     public String defaultSystemPrompt() {
+        return properties.getProperty("chat.system.prompt", "");
+    }
+
+    private String resolveBaseUrl() {
+        String userValue = userConfig.getBaseUrl();
+        if (userValue != null && !userValue.isBlank()) {
+            return userValue;
+        }
+        return properties.getProperty("ollama.base.url", DEFAULT_BASE_URL);
+    }
+
+    private String resolveSystemPrompt() {
+        String userValue = userConfig.getSystemPrompt();
+        if (userValue != null) {
+            return userValue;
+        }
         return properties.getProperty("chat.system.prompt", "");
     }
 
