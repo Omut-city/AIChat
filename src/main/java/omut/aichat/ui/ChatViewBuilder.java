@@ -13,6 +13,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.web.WebView;
 
 /**
  * Builds the JavaFX scene graph for the chat window.
@@ -21,7 +22,7 @@ import javafx.scene.paint.Color;
  */
 public class ChatViewBuilder {
 
-    public final TextArea chatArea = new TextArea();
+    public final WebView chatView = new WebView();
     public final TextField inputField = new TextField();
     public final Button sendButton = new Button("Send");
     public final Button stopButton = new Button("Stop");
@@ -38,9 +39,8 @@ public class ChatViewBuilder {
     public final Label noticeLabel = new Label("");
 
     public Parent build() {
-        chatArea.setEditable(false);
-        chatArea.setWrapText(true);
-        VBox.setVgrow(chatArea, Priority.ALWAYS);
+        chatView.setContextMenuEnabled(false);
+        VBox.setVgrow(chatView, Priority.ALWAYS);
 
         inputField.setPromptText("Type a message and press Enter...");
         HBox.setHgrow(inputField, Priority.ALWAYS);
@@ -76,7 +76,7 @@ public class ChatViewBuilder {
         statusBar.setAlignment(Pos.CENTER_LEFT);
         statusBar.setPadding(new Insets(0, 10, 10, 10));
 
-        VBox root = new VBox(5, chatArea, inputBox, statusBar);
+        VBox root = new VBox(5, chatView, inputBox, statusBar);
         root.setPadding(new Insets(10));
         return root;
     }

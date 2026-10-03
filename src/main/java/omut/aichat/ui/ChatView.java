@@ -12,6 +12,8 @@ import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatSession;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +27,9 @@ public class ChatView implements ChatListener {
 
     private final ChatSession session;
     private final ChatViewBuilder view;
+    private final StringBuilder markdownHistory = new StringBuilder();
+    private final Parser markdownParser = Parser.builder().build();
+    private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().build();
 
     private boolean busy = false;
     private boolean llmAvailable = false;
@@ -97,8 +102,8 @@ public class ChatView implements ChatListener {
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            view.chatArea.appendText(format(message) + "\n\n");
-            view.chatArea.setScrollTop(Double.MAX_VALUE);
+            markdownHistory.append(formatMarkdown(message)).append("\n\n");
+            renderMarkdown();
         });
     }
 
@@ -122,10 +127,12 @@ public class ChatView implements ChatListener {
             view.inputField.requestFocus();
         });
     }
+
     @Override
     public void onCleared() {
         Platform.runLater(() -> {
-            view.chatArea.clear();
+            markdownHistory.setLength(0);
+            view.chatView.getEngine().loadContent(wrapInHtml(""));
             view.noticeLabel.setText("");
         });
     }
@@ -145,8 +152,8 @@ public class ChatView implements ChatListener {
     public void onRequestCancelled() {
         Platform.runLater(() -> {
             view.typingLabel.setText("");
-            view.chatArea.appendText("System: Generation cancelled.\n\n");
-            view.chatArea.setScrollTop(Double.MAX_VALUE);
+            markdownHistory.append("> System: Generation cancelled.\n\n");
+            renderMarkdown();
         });
     }
 
@@ -172,17 +179,17 @@ public class ChatView implements ChatListener {
         session.send(text);
     }
 
-    private String format(AIChatMessage message) {
+    private String formatMarkdown(AIChatMessage message) {
         return switch (message.role()) {
-            case USER -> "You: " + message.text();
+            case USER -> "**You:** " + message.text();
             case ASSISTANT -> String.format(
                     java.util.Locale.US,
-                    "AI (%s, %.1fs): %s",
+                    "**AI (%s, %.1fs):**%n%n%s",
                     session.currentModel(),
                     message.durationMillis() / 1000.0,
                     message.text()
             );
-            case SYSTEM -> "System: " + message.text();
+            case SYSTEM -> "> " + message.text();
         };
     }
 
@@ -200,7 +207,7 @@ public class ChatView implements ChatListener {
                 session.systemPrompt(),
                 session.defaultSystemPrompt()
         );
-        dialog.initOwner(view.chatArea.getScene().getWindow());
+        dialog.initOwner(view.chatView.getScene().getWindow());
         String newPrompt = dialog.showAndWait().orElse(null);
         if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(session.systemPrompt())) {
             session.setSystemPrompt(newPrompt);
@@ -209,7 +216,7 @@ public class ChatView implements ChatListener {
 
     private void onSettings() {
         SettingsDialog dialog = new SettingsDialog(session.baseUrl(), session.defaultBaseUrl());
-        dialog.initOwner(view.chatArea.getScene().getWindow());
+        dialog.initOwner(view.chatView.getScene().getWindow());
         String newUrl = dialog.showAndWait().orElse(null);
         if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(session.baseUrl())) {
             session.setBaseUrl(newUrl);
@@ -228,7 +235,7 @@ public class ChatView implements ChatListener {
         chooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Markdown (*.md)", "*.md"));
 
-        File file = chooser.showSaveDialog(view.chatArea.getScene().getWindow());
+        File file = chooser.showSaveDialog(view.chatView.getScene().getWindow());
         if (file == null) return;
 
         try {
@@ -256,5 +263,54 @@ public class ChatView implements ChatListener {
             noticeTimer.setOnFinished(e -> view.noticeLabel.setText(""));
             noticeTimer.play();
         });
+    }
+
+    private void renderMarkdown() {
+        String html = markdownRenderer.render(markdownParser.parse(markdownHistory.toString()));
+        String page = wrapInHtml(html);
+        view.chatView.getEngine().loadContent(page);
+        scrollToBottom();
+    }
+
+    private void scrollToBottom() {
+        Platform.runLater(() ->
+                view.chatView.getEngine().executeScript("window.scrollTo(0, document.body.scrollHeight);"));
+    }
+
+    private String wrapInHtml(String body) {
+        return """
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 14px;
+            margin: 12px;
+            color: #222;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 8px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+        blockquote {
+            border-left: 3px solid #ccc;
+            margin-left: 0;
+            padding-left: 10px;
+            color: #555;
+        }
+        </style>
+        </head>
+        <body>
+        """ + body + """
+        </body>
+        </html>
+        """;
     }
 }
