@@ -23,6 +23,7 @@ public class ChatViewBuilder {
 
     public final WebView chatView = new WebView();
     public final TextField inputField = new TextField();
+    public final Button attachButton = new Button("Attach");
     public final Button sendButton = new Button("Send");
     public final Button stopButton = new Button("Stop");
     public final Button clearButton = new Button("Clear");
@@ -44,7 +45,9 @@ public class ChatViewBuilder {
         inputField.setPromptText("Type a message and press Enter...");
         HBox.setHgrow(inputField, Priority.ALWAYS);
 
-        HBox inputBox = new HBox(8, inputField, sendButton, stopButton, clearButton);
+        attachButton.setDisable(true);
+
+        HBox inputBox = new HBox(8, inputField, attachButton, sendButton, stopButton, clearButton);
         inputBox.setPadding(new Insets(10));
 
         noticeLabel.setTextFill(Color.DARKSLATEGRAY);

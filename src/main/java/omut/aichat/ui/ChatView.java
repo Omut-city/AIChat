@@ -18,6 +18,8 @@ import org.commonmark.renderer.html.HtmlRenderer;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +47,7 @@ public class ChatView implements ChatListener {
     public Parent build() {
         Parent root = view.build();
 
+        view.attachButton.setOnAction(e -> onAttach());
         view.sendButton.setOnAction(e -> onSend());
         view.inputField.setOnAction(e -> onSend());
         view.clearButton.setOnAction(e -> session.clear());
@@ -177,6 +180,33 @@ public class ChatView implements ChatListener {
         });
     }
 
+    @Override
+    public void onFileAttached(String fileName) {
+        Platform.runLater(() -> {
+            showNotice("Attached: " + fileName, Color.SEAGREEN);
+        });
+    }
+
+    private void onAttach() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Attach file");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Text files", "*.txt", "*.md", "*.json", "*.xml", "*.yaml", "*.yml"),
+                new FileChooser.ExtensionFilter("Code files", "*.java", "*.kt", "*.py", "*.js", "*.ts", "*.cpp", "*.c", "*.h"),
+                new FileChooser.ExtensionFilter("All files", "*.*")
+        );
+
+        File file = chooser.showOpenDialog(view.chatView.getScene().getWindow());
+        if (file == null) return;
+
+        try {
+            String content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            session.attachFile(file.getName(), content);
+        } catch (IOException e) {
+            showNotice("Attach failed: " + e.getMessage(), Color.CRIMSON);
+        }
+    }
+
     public void focusInput() {
         view.inputField.requestFocus();
     }
@@ -205,6 +235,7 @@ public class ChatView implements ChatListener {
     private void updateControls() {
         boolean locked = busy || !llmAvailable;
         view.inputField.setDisable(locked);
+        view.attachButton.setDisable(locked);
         view.sendButton.setDisable(locked);
         view.clearButton.setDisable(busy);
         view.saveButton.setDisable(busy);

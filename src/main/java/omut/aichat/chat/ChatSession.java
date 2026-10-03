@@ -110,6 +110,24 @@ public class ChatSession {
         return llmService.defaultBaseUrl();
     }
 
+    /**
+     * Attaches a file's contents to the conversation as a system message.
+     * The model will see it in the next request.
+     */
+    public void attachFile(String fileName, String content) {
+        if (fileName == null || fileName.isBlank()) return;
+        if (content == null || content.isBlank()) {
+            notifyMessage(AIChatMessage.system("Attached file is empty: " + fileName));
+            return;
+        }
+
+        String text = "[Attached: " + fileName + "]\n\n" + content;
+        AIChatMessage attachment = AIChatMessage.system(text);
+        history.add(attachment);
+        notifyMessage(AIChatMessage.system("Attached: " + fileName));
+        notifyFileAttached(fileName);
+    }
+
     public void clear() {
         history.clear();
         String prompt = llmService.systemPrompt();
@@ -226,6 +244,10 @@ public class ChatSession {
 
     public String chatTemplatePath() {
         return llmService.chatTemplatePath();
+    }
+
+    private void notifyFileAttached(String fileName) {
+        listeners.forEach(l -> l.onFileAttached(fileName));
     }
 
     private void notifyCleared() {
