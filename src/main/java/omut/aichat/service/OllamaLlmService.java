@@ -88,6 +88,8 @@ public class OllamaLlmService implements LlmService {
                 .modelName(modelName)
                 .timeout(Duration.ofMinutes(config.requestTimeoutMinutes()))
                 .temperature(config.temperature())
+                .logRequests(true)
+                .logResponses(true)
                 .build();
     }
 

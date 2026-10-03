@@ -115,6 +115,24 @@ mvn clean javafx:run
 ```
 Or, in IntelliJ IDEA, run the Launcher class directly.
 
+### VM options
+
+Two JVM flags are recommended when running the app:
+
+- `--enable-native-access=javafx.graphics` — required by JDK 24+ for JavaFX's native calls.
+  Without it, the JVM prints a "restricted method" warning on startup.
+- `-Dorg.slf4j.simpleLogger.defaultLogLevel=debug` — enables debug logs.
+  Optional; useful when troubleshooting.
+
+Optional, to print logs to stdout instead of stderr:
+
+- `-Dorg.slf4j.simpleLogger.logFile=System.out` — makes INFO logs appear in white
+  instead of red in IntelliJ's console. Purely cosmetic.
+
+#### IntelliJ IDEA
+
+**Run → Edit Configurations → VM options**, paste:
+
 ### First request is slow
 The first time you send a message, Ollama loads the model into memory.
 This can take 10–30 seconds depending on your hardware. Subsequent
