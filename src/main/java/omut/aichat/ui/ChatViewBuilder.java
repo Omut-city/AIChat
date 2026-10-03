@@ -24,6 +24,7 @@ public class ChatViewBuilder {
     public final TextArea chatArea = new TextArea();
     public final TextField inputField = new TextField();
     public final Button sendButton = new Button("Send");
+    public final Button stopButton = new Button("Stop");
     public final Button clearButton = new Button("Clear");
     public final Button checkButton = new Button("Check connection");
     public final Button settingsButton = new Button("Settings");
@@ -43,7 +44,7 @@ public class ChatViewBuilder {
         inputField.setPromptText("Type a message and press Enter...");
         HBox.setHgrow(inputField, Priority.ALWAYS);
 
-        HBox inputBox = new HBox(8, inputField, sendButton, clearButton);
+        HBox inputBox = new HBox(8, inputField, sendButton, stopButton, clearButton);
         inputBox.setPadding(new Insets(10));
 
         noticeLabel.setTextFill(Color.DARKSLATEGRAY);

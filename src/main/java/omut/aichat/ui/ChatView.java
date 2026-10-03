@@ -2,8 +2,6 @@ package omut.aichat.ui;
 
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -46,6 +44,7 @@ public class ChatView implements ChatListener {
         view.checkButton.setOnAction(e -> session.checkAvailability());
         view.promptButton.setOnAction(e -> onEditSystemPrompt());
         view.saveButton.setOnAction(e -> onSave());
+        view.stopButton.setOnAction(e -> session.cancelCurrentRequest());
         view.settingsButton.setOnAction(e -> onSettings());
         view.modelSelector.setOnAction(e -> {
             String selected = view.modelSelector.getValue();
@@ -108,6 +107,7 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             busy = true;
             view.typingLabel.setText("AI is thinking...");
+            view.stopButton.setDisable(false);
             updateControls();
         });
     }
@@ -117,11 +117,11 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             busy = false;
             view.typingLabel.setText("");
+            view.stopButton.setDisable(true);
             updateControls();
             view.inputField.requestFocus();
         });
     }
-
     @Override
     public void onCleared() {
         Platform.runLater(() -> {
@@ -138,6 +138,15 @@ public class ChatView implements ChatListener {
             } else {
                 view.lastResponseLabel.setText(String.format(java.util.Locale.US, "Last: %.1fs", millis / 1000.0));
             }
+        });
+    }
+
+    @Override
+    public void onRequestCancelled() {
+        Platform.runLater(() -> {
+            view.typingLabel.setText("");
+            view.chatArea.appendText("System: Generation cancelled.\n\n");
+            view.chatArea.setScrollTop(Double.MAX_VALUE);
         });
     }
 

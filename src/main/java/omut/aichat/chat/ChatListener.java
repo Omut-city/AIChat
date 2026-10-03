@@ -11,5 +11,6 @@ public interface ChatListener {
     void onModelsLoaded(List<String> models);
     void onModelChanged(String modelName);
     void onResponseTime(long millis);
+    void onRequestCancelled();
 
 }

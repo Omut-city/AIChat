@@ -7,8 +7,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class ChatSession {
+
+    private Future<?> currentRequest;
+    private volatile boolean currentRequestCancelled = false;
 
     private final LlmService llmService;
     private final List<AIChatMessage> history = new ArrayList<>();
@@ -39,26 +43,38 @@ public class ChatSession {
     public void send(String userText) {
         if (userText == null || userText.isBlank()) return;
 
+        currentRequestCancelled = false;
         AIChatMessage userMessage = AIChatMessage.user(userText.trim());
         history.add(userMessage);
         notifyMessage(userMessage);
         notifyThinkingStarted();
 
-        executor.submit(() -> {
+        currentRequest = executor.submit(() -> {
             long start = System.nanoTime();
             try {
                 String replyText = llmService.ask(buildRequestHistory());
                 long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+
+                if (currentRequestCancelled) {
+                    return;
+                }
+
                 AIChatMessage reply = AIChatMessage.assistant(replyText, elapsedMillis);
                 history.add(reply);
                 notifyMessage(reply);
                 notifyResponseTime(elapsedMillis);
             } catch (Exception e) {
+                if (currentRequestCancelled) return;
                 AIChatMessage error = AIChatMessage.system(friendlyError(e));
                 history.add(error);
                 notifyMessage(error);
             } finally {
-                notifyThinkingFinished();
+                boolean wasCancelled = currentRequestCancelled;
+                currentRequest = null;
+                currentRequestCancelled = false;
+                if (!wasCancelled) {
+                    notifyThinkingFinished();
+                }
             }
         });
     }
@@ -121,6 +137,17 @@ public class ChatSession {
 
     private void notifyStatus(boolean available) {
         listeners.forEach(l -> l.onStatusChanged(available));
+    }
+
+    public void cancelCurrentRequest() {
+        Future<?> request = currentRequest;
+        if (request != null && !request.isDone()) {
+            currentRequestCancelled = true;
+            request.cancel(true);
+            currentRequest = null;
+            notifyRequestCancelled();
+            notifyThinkingFinished();
+        }
     }
 
     private String friendlyError(Throwable ex) {
@@ -202,6 +229,10 @@ public class ChatSession {
 
     private void notifyResponseTime(long millis) {
         listeners.forEach(l -> l.onResponseTime(millis));
+    }
+
+    private void notifyRequestCancelled() {
+        listeners.forEach(ChatListener::onRequestCancelled);
     }
 
     private List<AIChatMessage> buildRequestHistory() {
