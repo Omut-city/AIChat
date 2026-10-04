@@ -4,10 +4,7 @@ import omut.aichat.service.LlmService;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.*;
 
 public class ChatSession {
 
@@ -127,25 +124,36 @@ public class ChatSession {
             return;
         }
 
-        String text = "[Attached: " + fileName + "]\n\n" + content;
-        AIChatMessage attachment = AIChatMessage.system(text);
-        history.add(attachment);
-        notifyMessage(AIChatMessage.system("Attached: " + fileName));
-        notifyFileAttached(fileName);
+        submit(() -> {
+            String text = "[Attached: " + fileName + "]\n\n" + content;
+            AIChatMessage attachment = AIChatMessage.system(text);
+            history.add(attachment);
+            notifyMessage(AIChatMessage.system("Attached: " + fileName));
+            notifyFileAttached(fileName);
+        });
     }
 
     public void clear() {
-        history.clear();
-        String prompt = llmService.systemPrompt();
-        if (!prompt.isBlank()) {
-            history.add(AIChatMessage.system(prompt));
-        }
-        notifyCleared();
-        notifyMessage(AIChatMessage.system("Chat cleared."));
+        submit(() -> {
+            history.clear();
+            String prompt = llmService.systemPrompt();
+            if (!prompt.isBlank()) {
+                history.add(AIChatMessage.system(prompt));
+            }
+            notifyCleared();
+            notifyMessage(AIChatMessage.system("Chat cleared."));
+        });
     }
 
     public void shutdown() {
         executor.shutdownNow();
+        try {
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                // worker didn't stop in time — nothing we can do
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void notifyMessage(AIChatMessage m) {
