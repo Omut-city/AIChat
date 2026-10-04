@@ -15,6 +15,8 @@ import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatSession;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ChatView implements ChatListener {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatView.class);
 
     private PauseTransition noticeTimer;
 
@@ -47,6 +51,8 @@ public class ChatView implements ChatListener {
     public Parent build() {
         Parent root = view.build();
 
+        view.exitMenuItem.setOnAction(e -> Platform.exit());
+        view.aboutMenuItem.setOnAction(e -> onAbout());
         view.attachButton.setOnAction(e -> onAttach());
         view.sendButton.setOnAction(e -> onSend());
         view.inputField.setOnAction(e -> onSend());
@@ -325,5 +331,32 @@ public class ChatView implements ChatListener {
         String css = HtmlTemplate.readResource(session.highlightCssPath());
         String js = HtmlTemplate.readResource(session.highlightJsPath());
         return template().render(css, js, body);
+    }
+
+    private void onAbout() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("About AIChat");
+        alert.setHeaderText("AIChat — Local Offline LLM");
+        alert.initOwner(view.chatView.getScene().getWindow());
+
+        Hyperlink link = new Hyperlink("https://github.com/Omut-city/AIChat");
+        link.setOnAction(e -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(
+                        java.net.URI.create("https://github.com/Omut-city/AIChat"));
+            } catch (Exception ex) {
+                log.warn("Cannot open browser for {}: {}",
+                        "https://github.com/Omut-city/AIChat", ex.getMessage());
+            }
+        });
+
+        VBox content = new VBox(8,
+                new Label("A simple offline chat with local LLMs."),
+                new Label("Built with Java 25, JavaFX 25, Ollama and LangChain4j."),
+                link
+        );
+        alert.getDialogPane().setContent(content);
+
+        alert.showAndWait();
     }
 }

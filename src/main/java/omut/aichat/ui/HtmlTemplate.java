@@ -1,10 +1,15 @@
 package omut.aichat.ui;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 public class HtmlTemplate {
+
+    private static final Logger log = LoggerFactory.getLogger(HtmlTemplate.class);
 
     private final String template;
 
@@ -29,12 +34,12 @@ public class HtmlTemplate {
     public static String readResource(String path) {
         try (InputStream in = HtmlTemplate.class.getResourceAsStream(path)) {
             if (in == null) {
-                System.err.println("Resource not found: " + path);
+                log.warn("Resource not found: {}", path);
                 return "";
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            System.err.println("Failed to read resource: " + path + " — " + e.getMessage());
+            log.error("Failed to read resource: {} - {}" , path, e.getMessage());
             return "";
         }
     }

@@ -9,6 +9,7 @@ module omut.aichat {
     requires com.fasterxml.jackson.databind;
     requires org.slf4j;
     requires atlantafx.base;
+    requires java.desktop;
 
     exports omut.aichat;
     exports omut.aichat.chat;

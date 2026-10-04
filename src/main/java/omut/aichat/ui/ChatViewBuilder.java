@@ -6,7 +6,12 @@ import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.Separator;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToolBar;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -27,7 +32,7 @@ public class ChatViewBuilder {
     public final Button sendButton = new Button("Send");
     public final Button stopButton = new Button("Stop");
     public final Button clearButton = new Button("Clear");
-    public final Button checkButton = new Button("Check connection");
+    public final Button checkButton = new Button("Check");
     public final Button settingsButton = new Button("Settings");
     public final Button promptButton = new Button("Prompt");
     public final Button saveButton = new Button("Save");
@@ -38,48 +43,70 @@ public class ChatViewBuilder {
     public final Label speedLabel = new Label("");
     public final Label noticeLabel = new Label("");
 
+    public final MenuBar menuBar = new MenuBar();
+    public final MenuItem exitMenuItem = new MenuItem("Exit");
+    public final MenuItem aboutMenuItem = new MenuItem("About AIChat");
+
     public Parent build() {
+
+        Menu fileMenu = new Menu("File");
+        fileMenu.getItems().add(exitMenuItem);
+
+        Menu helpMenu = new Menu("Help");
+        helpMenu.getItems().add(aboutMenuItem);
+
+        menuBar.getMenus().addAll(fileMenu, helpMenu);
+
+        modelSelector.setPromptText("Model");
+        modelSelector.setDisable(true);
+        modelSelector.setPrefWidth(200);
+
+        Region toolbarSpacer = new Region();
+        HBox.setHgrow(toolbarSpacer, Priority.ALWAYS);
+
+        ToolBar toolBar = new ToolBar(
+                modelSelector,
+                new Separator(),
+                statusLabel,
+                toolbarSpacer,
+                saveButton,
+                checkButton,
+                promptButton,
+                settingsButton
+        );
+
         chatView.setContextMenuEnabled(false);
         VBox.setVgrow(chatView, Priority.ALWAYS);
 
         inputField.setPromptText("Type a message and press Enter...");
         HBox.setHgrow(inputField, Priority.ALWAYS);
-
         attachButton.setDisable(true);
 
-        HBox inputBox = new HBox(8, inputField, attachButton, sendButton, stopButton, clearButton);
+        HBox inputBox = new HBox(8, attachButton, inputField, sendButton, stopButton, clearButton);
+        inputBox.setAlignment(Pos.CENTER_LEFT);
         inputBox.setPadding(new Insets(10));
 
         noticeLabel.setTextFill(Color.DARKSLATEGRAY);
         statusLabel.setTextFill(Color.GRAY);
         typingLabel.setTextFill(Color.DARKSLATEGRAY);
         lastResponseLabel.setTextFill(Color.DARKSLATEGRAY);
+        speedLabel.setTextFill(Color.DARKSLATEGRAY);
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Region statusSpacer = new Region();
+        HBox.setHgrow(statusSpacer, Priority.ALWAYS);
 
-        modelSelector.setPromptText("Model");
-        modelSelector.setDisable(true);
-
-        HBox statusBar = new HBox(
+        HBox statusLine = new HBox(
                 10,
-                statusLabel,
-                modelSelector,
-                spacer,
                 lastResponseLabel,
                 speedLabel,
+                statusSpacer,
                 noticeLabel,
-                typingLabel,
-                saveButton,
-                checkButton,
-                promptButton,
-                settingsButton
+                typingLabel
         );
-        statusBar.setAlignment(Pos.CENTER_LEFT);
-        statusBar.setPadding(new Insets(0, 10, 10, 10));
+        statusLine.setAlignment(Pos.CENTER_LEFT);
+        statusLine.setPadding(new Insets(0, 10, 8, 10));
 
-        VBox root = new VBox(5, chatView, inputBox, statusBar);
-        root.setPadding(new Insets(10));
+        VBox root = new VBox(menuBar, toolBar, chatView, inputBox, statusLine);
         return root;
     }
 }
