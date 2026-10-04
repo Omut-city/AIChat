@@ -227,13 +227,12 @@ public class OllamaLlmService implements LlmService {
             @Override
             public void onCompleteResponse(ChatResponse response) {
                 long elapsedNanos = System.nanoTime() - start;
-                AiMessage ai = response.aiMessage();
                 int outputTokens = response.tokenUsage() != null
                         ? response.tokenUsage().outputTokenCount()
                         : 0;
 
                 callback.onComplete(new LlmResponse(
-                        ai.text(),
+                        accumulator.toString(),
                         elapsedNanos / 1_000_000,
                         outputTokens,
                         elapsedNanos
