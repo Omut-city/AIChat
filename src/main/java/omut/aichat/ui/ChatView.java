@@ -29,6 +29,7 @@ import java.util.List;
 public class ChatView implements ChatListener {
 
     private static final Logger log = LoggerFactory.getLogger(ChatView.class);
+    private static final long STREAM_RENDER_INTERVAL_NANOS = 80_000_000L;
 
     private PauseTransition noticeTimer;
 
@@ -38,6 +39,7 @@ public class ChatView implements ChatListener {
     private final Parser markdownParser = Parser.builder().build();
     private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().build();
     private HtmlTemplate htmlTemplate;
+    private long lastStreamRenderNanos = 0;
 
     private boolean busy = false;
     private boolean llmAvailable = false;
@@ -71,10 +73,11 @@ public class ChatView implements ChatListener {
         view.chatView.getEngine().getLoadWorker().stateProperty().addListener(
                 (obs, oldState, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
-                        view.chatView.getEngine().executeScript(
-                                "window.scrollTo(0, document.body.scrollHeight);");
+                        executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
                     }
                 });
+
+        renderMarkdown();
 
         Platform.runLater(session::checkAvailability);
         return root;
@@ -120,8 +123,12 @@ public class ChatView implements ChatListener {
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            markdownHistory.append(formatMarkdown(message)).append("\n\n");
-            renderMarkdown();
+            if (message.role() == AIChatMessage.Role.ASSISTANT) {
+                executeScriptSafely("finalizeStreaming();");
+            } else {
+                markdownHistory.append(formatMarkdown(message)).append("\n\n");
+                renderMarkdown();
+            }
         });
     }
 
@@ -132,6 +139,7 @@ public class ChatView implements ChatListener {
             view.typingLabel.setText("AI is thinking...");
             view.stopButton.setDisable(false);
             updateControls();
+            executeScriptSafely("beginStreaming();");
         });
     }
 
@@ -172,6 +180,7 @@ public class ChatView implements ChatListener {
             busy = false;
             view.typingLabel.setText("");
             view.stopButton.setDisable(true);
+            executeScriptSafely("removeStreamingMessage();");
             markdownHistory.append("> System: Generation cancelled.\n\n");
             renderMarkdown();
             updateControls();
@@ -219,7 +228,18 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onToken(String chunk, String fullText) {
-        // TODO: streaming rendering (next step)
+        long now = System.nanoTime();
+        if (now - lastStreamRenderNanos < STREAM_RENDER_INTERVAL_NANOS) {
+            return;
+        }
+        lastStreamRenderNanos = now;
+
+        Platform.runLater(() -> {
+            String html = markdownRenderer.render(markdownParser.parse(fullText));
+            String escaped = jsStringLiteral(html);
+            executeScriptSafely("updateStreamingMessage(" + escaped + ");");
+            executeScriptSafely("if (isAtBottom()) scrollToBottom();");
+        });
     }
 
     public void focusInput() {
@@ -363,5 +383,48 @@ public class ChatView implements ChatListener {
         alert.getDialogPane().setContent(content);
 
         alert.showAndWait();
+    }
+
+    /**
+     * Convert an arbitrary string into a JS string literal
+     * (surround with quotes, escape special characters).
+     */
+    private static String jsStringLiteral(String s) {
+        StringBuilder sb = new StringBuilder(s.length() + 16);
+        sb.append('"');
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"'  -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        sb.append('"');
+        return sb.toString();
+    }
+
+    /**
+     * Execute JS in the WebView, ignoring failures.
+     * Failures can happen if the document has not finished loading yet
+     * (e.g. user sent a message before WebView loaded chat.html).
+     */
+    private void executeScriptSafely(String script) {
+        try {
+            view.chatView.getEngine().executeScript(script);
+        } catch (Exception e) {
+            log.warn("executeScript failed: {} — {}", script, e.getMessage());
+        }
     }
 }

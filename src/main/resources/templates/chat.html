@@ -25,6 +25,76 @@
 <script>
     hljs.registerAliases(['arduino', 'ino'], { languageName: 'cpp' });
     hljs.highlightAll();
+
+    /**
+     * Create (or reset) the streaming placeholder block.
+     * Called from Java when the model starts generating.
+     */
+    function beginStreaming() {
+        var existing = document.getElementById('streaming-message');
+        if (existing) {
+            existing.remove();
+        }
+        var el = document.createElement('div');
+        el.id = 'streaming-message';
+        el.className = 'streaming';
+        document.body.appendChild(el);
+    }
+
+    /**
+     * Update the streaming placeholder with new content.
+     * The content is a full HTML fragment rendered from Markdown
+     * on the Java side.
+     */
+    function updateStreamingMessage(html) {
+        var el = document.getElementById('streaming-message');
+        if (!el) {
+            // defensive: create if not present
+            beginStreaming();
+            el = document.getElementById('streaming-message');
+        }
+        el.innerHTML = html;
+        el.querySelectorAll('pre code').forEach(function (block) {
+            hljs.highlightElement(block);
+        });
+    }
+
+    /**
+     * Finalize the streaming block: drop the id so the next
+     * streaming session creates a fresh placeholder.
+     */
+    function finalizeStreaming() {
+        var el = document.getElementById('streaming-message');
+        if (el) {
+            el.removeAttribute('id');
+            el.classList.remove('streaming');
+        }
+    }
+
+    /**
+     * Remove the streaming block entirely.
+     * Used on cancellation or error.
+     */
+    function removeStreamingMessage() {
+        var el = document.getElementById('streaming-message');
+        if (el) {
+            el.remove();
+        }
+    }
+
+    /**
+     * Returns true if the user is scrolled to (or near) the bottom.
+     */
+    function isAtBottom() {
+        return (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 50);
+    }
+
+    /**
+     * Scroll to the bottom of the page.
+     */
+    function scrollToBottom() {
+        window.scrollTo(0, document.body.scrollHeight);
+    }
 </script>
 </body>
 </html>
