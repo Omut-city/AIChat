@@ -1,6 +1,9 @@
 package omut.aichat.chat;
 
 import omut.aichat.service.LlmService;
+import omut.aichat.ui.ChatView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +11,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatSession {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatView.class);
 
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
@@ -175,7 +180,7 @@ public class ChatSession {
         executor.shutdownNow();
         try {
             if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
-                // worker didn't stop in time — nothing we can do
+                log.warn("chat-worker did not terminate within 2 seconds");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -357,7 +362,7 @@ public class ChatSession {
         try {
             executor.submit(task);
         } catch (RejectedExecutionException e) {
-            // executor is shutting down — ignore
+            log.warn("Task rejected — executor is shutting down");
         }
     }
 
