@@ -61,25 +61,30 @@ public class OllamaLlmService implements LlmService {
 
     @Override
     public boolean isAvailable() {
+        HttpURLConnection connection = null;
         try {
-            HttpURLConnection connection = (HttpURLConnection)
+            connection = (HttpURLConnection)
                     URI.create(config.getBaseUrl() + "/api/tags").toURL().openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(1500);
             connection.setReadTimeout(1500);
             int code = connection.getResponseCode();
-            connection.disconnect();
             return code == 200;
         } catch (Exception e) {
             return false;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 
     @Override
     public List<String> listModels() {
         List<String> result = new ArrayList<>();
+        HttpURLConnection connection = null;
         try {
-            HttpURLConnection connection = (HttpURLConnection)
+            connection = (HttpURLConnection)
                     URI.create(config.getBaseUrl() + "/api/tags").toURL().openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(2000);
@@ -89,9 +94,12 @@ public class OllamaLlmService implements LlmService {
             for (JsonNode node : root.get("models")) {
                 result.add(node.get("name").asText());
             }
-            connection.disconnect();
         } catch (Exception e) {
             // return empty list on failure
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
         return result;
     }
@@ -176,5 +184,10 @@ public class OllamaLlmService implements LlmService {
     @Override
     public String chatTemplatePath() {
         return config.chatTemplatePath();
+    }
+
+    @Override
+    public int attachMaxChars() {
+        return config.attachMaxChars();
     }
 }

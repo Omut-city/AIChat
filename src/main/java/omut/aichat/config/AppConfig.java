@@ -61,23 +61,22 @@ public class AppConfig {
     }
 
     public int requestTimeoutMinutes() {
-        return Integer.parseInt(properties.getProperty("ollama.request.timeout.minutes", "5"));
+        return getInt("ollama.request.timeout.minutes", 5);
     }
 
     public double temperature() {
-        return Double.parseDouble(properties.getProperty("ollama.temperature", "0.5"));
+        return getDouble("ollama.temperature", 0.5);
     }
-
     public String windowTitle() {
         return properties.getProperty("app.window.title", "AIChat - Local Offline LLM");
     }
 
     public int windowWidth() {
-        return Integer.parseInt(properties.getProperty("app.window.width", "640"));
+        return getInt("app.window.width", 640);
     }
 
     public int windowHeight() {
-        return Integer.parseInt(properties.getProperty("app.window.height", "540"));
+        return getInt("app.window.height", 540);
     }
 
     public String systemPrompt() {
@@ -115,8 +114,7 @@ public class AppConfig {
     }
 
     public int historyMaxMessages() {
-        int value = Integer.parseInt(properties.getProperty("chat.history.max.messages", "20"));
-        return Math.max(2, value);
+        return Math.max(2, getInt("chat.history.max.messages", 20));
     }
 
     public String highlightJsPath() {
@@ -129,5 +127,29 @@ public class AppConfig {
 
     public String chatTemplatePath() {
         return properties.getProperty("chat.template.path", "/templates/chat.html");
+    }
+
+    public int attachMaxChars() {
+        return getInt("chat.attach.max.chars", 100_000);
+    }
+
+    private int getInt(String key, int defaultValue) {
+        String value = properties.getProperty(key);
+        if (value == null) return defaultValue;
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private double getDouble(String key, double defaultValue) {
+        String value = properties.getProperty(key);
+        if (value == null) return defaultValue;
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 }

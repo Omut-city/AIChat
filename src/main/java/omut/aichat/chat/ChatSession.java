@@ -124,6 +124,13 @@ public class ChatSession {
             return;
         }
 
+        int max = llmService.attachMaxChars();
+        if (content.length() > max) {
+            notifyMessage(AIChatMessage.system(
+                    "File too large: " + content.length() + " chars, limit is " + max));
+            return;
+        }
+
         submit(() -> {
             String text = "[Attached: " + fileName + "]\n\n" + content;
             AIChatMessage attachment = AIChatMessage.system(text);

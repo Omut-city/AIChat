@@ -21,4 +21,5 @@ public interface LlmService {
     String highlightJsPath();
     String highlightCssPath();
     String chatTemplatePath();
+    int attachMaxChars();
 }
