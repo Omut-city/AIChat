@@ -2,6 +2,7 @@ package omut.aichat.service;
 
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.LlmResponse;
+import omut.aichat.chat.StreamingCallback;
 
 import java.util.List;
 
@@ -22,4 +23,5 @@ public interface LlmService {
     String highlightCssPath();
     String chatTemplatePath();
     int attachMaxChars();
+    void askStreaming(List<AIChatMessage> conversation, StreamingCallback callback);
 }

@@ -217,6 +217,11 @@ public class ChatView implements ChatListener {
         }
     }
 
+    @Override
+    public void onToken(String chunk, String fullText) {
+        // TODO: streaming rendering (next step)
+    }
+
     public void focusInput() {
         view.inputField.requestFocus();
     }

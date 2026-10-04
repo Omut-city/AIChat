@@ -52,18 +52,35 @@ public class ChatSession {
                     history.add(userMessage);
                     notifyMessage(userMessage);
 
-                    LlmResponse reply = llmService.ask(buildRequestHistory());
-                    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+                    llmService.askStreaming(buildRequestHistory(), new StreamingCallback() {
 
-                    if (currentRequestCancelled) {
-                        return;
-                    }
+                        @Override
+                        public void onToken(String chunk, String fullText) {
+                            if (currentRequestCancelled) return;
+                            notifyToken(chunk, fullText);
+                        }
 
-                    AIChatMessage assistantMessage = AIChatMessage.assistant(reply.text(), reply.durationMillis());
-                    history.add(assistantMessage);
-                    notifyMessage(assistantMessage);
-                    notifyResponseTime(elapsedMillis);
-                    notifyTokensPerSecond(reply.tokensPerSecond());
+                        @Override
+                        public void onComplete(LlmResponse response) {
+                            if (currentRequestCancelled) return;
+                            long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+                            AIChatMessage assistantMessage =
+                                    AIChatMessage.assistant(response.text(), response.durationMillis());
+                            history.add(assistantMessage);
+                            notifyMessage(assistantMessage);
+                            notifyResponseTime(elapsedMillis);
+                            notifyTokensPerSecond(response.tokensPerSecond());
+                        }
+
+                        @Override
+                        public void onError(Throwable error) {
+                            if (currentRequestCancelled) return;
+                            AIChatMessage errorMsg = AIChatMessage.system(friendlyError(error));
+                            history.add(errorMsg);
+                            notifyMessage(errorMsg);
+                        }
+                    });
+
                 } catch (Exception e) {
                     if (currentRequestCancelled) return;
                     AIChatMessage error = AIChatMessage.system(friendlyError(e));
@@ -324,5 +341,9 @@ public class ChatSession {
         } catch (RejectedExecutionException e) {
             // executor is shutting down — ignore
         }
+    }
+
+    private void notifyToken(String chunk, String fullText) {
+        listeners.forEach(l -> l.onToken(chunk, fullText));
     }
 }

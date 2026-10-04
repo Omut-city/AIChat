@@ -7,10 +7,14 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.LlmResponse;
+import omut.aichat.chat.StreamingCallback;
 import omut.aichat.config.AppConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +33,7 @@ public class OllamaLlmService implements LlmService {
     private final AppConfig config;
     private ChatModel model;
     private String currentModel;
+    private StreamingChatModel streamingModel;
 
     public OllamaLlmService(AppConfig config, String initialModel) {
         this.config = config;
@@ -110,6 +115,7 @@ public class OllamaLlmService implements LlmService {
             throw new IllegalArgumentException("Model name must not be blank");
         }
         this.currentModel = modelName;
+
         this.model = OllamaChatModel.builder()
                 .baseUrl(config.getBaseUrl())
                 .modelName(modelName)
@@ -117,6 +123,15 @@ public class OllamaLlmService implements LlmService {
                 .temperature(config.temperature())
                 .logRequests(true)
                 .logResponses(true)
+                .build();
+
+        this.streamingModel = OllamaStreamingChatModel.builder()
+                .baseUrl(config.getBaseUrl())
+                .modelName(modelName)
+                .timeout(Duration.ofMinutes(config.requestTimeoutMinutes()))
+                .temperature(config.temperature())
+                .logRequests(true)
+                .logResponses(false)
                 .build();
     }
 
@@ -189,5 +204,46 @@ public class OllamaLlmService implements LlmService {
     @Override
     public int attachMaxChars() {
         return config.attachMaxChars();
+    }
+
+    @Override
+    public void askStreaming(List<AIChatMessage> conversation, StreamingCallback callback) {
+        List<ChatMessage> messages = new ArrayList<>();
+        for (AIChatMessage msg : conversation) {
+            messages.add(toLangchainMessage(msg));
+        }
+
+        long start = System.nanoTime();
+        StringBuilder accumulator = new StringBuilder();
+
+        streamingModel.chat(messages, new StreamingChatResponseHandler() {
+
+            @Override
+            public void onPartialResponse(String partialResponse) {
+                accumulator.append(partialResponse);
+                callback.onToken(partialResponse, accumulator.toString());
+            }
+
+            @Override
+            public void onCompleteResponse(ChatResponse response) {
+                long elapsedNanos = System.nanoTime() - start;
+                AiMessage ai = response.aiMessage();
+                int outputTokens = response.tokenUsage() != null
+                        ? response.tokenUsage().outputTokenCount()
+                        : 0;
+
+                callback.onComplete(new LlmResponse(
+                        ai.text(),
+                        elapsedNanos / 1_000_000,
+                        outputTokens,
+                        elapsedNanos
+                ));
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                callback.onError(error);
+            }
+        });
     }
 }
