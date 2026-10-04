@@ -24,6 +24,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 public class OllamaLlmService implements LlmService {
 
@@ -215,6 +216,7 @@ public class OllamaLlmService implements LlmService {
 
         long start = System.nanoTime();
         StringBuilder accumulator = new StringBuilder();
+        CountDownLatch latch = new CountDownLatch(1);
 
         streamingModel.chat(messages, new StreamingChatResponseHandler() {
 
@@ -226,23 +228,37 @@ public class OllamaLlmService implements LlmService {
 
             @Override
             public void onCompleteResponse(ChatResponse response) {
-                long elapsedNanos = System.nanoTime() - start;
-                int outputTokens = response.tokenUsage() != null
-                        ? response.tokenUsage().outputTokenCount()
-                        : 0;
-
-                callback.onComplete(new LlmResponse(
-                        accumulator.toString(),
-                        elapsedNanos / 1_000_000,
-                        outputTokens,
-                        elapsedNanos
-                ));
+                try {
+                    long elapsedNanos = System.nanoTime() - start;
+                    int outputTokens = response.tokenUsage() != null
+                            ? response.tokenUsage().outputTokenCount()
+                            : 0;
+                    callback.onComplete(new LlmResponse(
+                            accumulator.toString(),
+                            elapsedNanos / 1_000_000,
+                            outputTokens,
+                            elapsedNanos
+                    ));
+                } finally {
+                    latch.countDown();
+                }
             }
 
             @Override
             public void onError(Throwable error) {
-                callback.onError(error);
+                try {
+                    callback.onError(error);
+                } finally {
+                    latch.countDown();
+                }
             }
         });
+
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            callback.onError(e);
+        }
     }
 }
