@@ -23,7 +23,9 @@ public interface StreamingCallback {
 
     /**
      * Called if the stream fails or is cancelled.
-     * After this, no more callbacks are invoked.
+     * The underlying transport may still deliver further chunks after
+     * this point; implementations must guard against them (e.g. by
+     * invalidating a request token on cancel).
      */
     void onError(Throwable error);
 }
