@@ -43,11 +43,11 @@ public class UserConfig {
         }
     }
 
-    public String getBaseUrl() {
+    public synchronized String getBaseUrl() {
         return properties.getProperty("ollama.base.url");
     }
 
-    public void setBaseUrl(String baseUrl) {
+    public synchronized void setBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
             properties.remove("ollama.base.url");
         } else {
@@ -56,11 +56,11 @@ public class UserConfig {
         save();
     }
 
-    public String getSystemPrompt() {
+    public synchronized String getSystemPrompt() {
         return properties.getProperty("chat.system.prompt");
     }
 
-    public void setSystemPrompt(String prompt) {
+    public synchronized void setSystemPrompt(String prompt) {
         if (prompt == null || prompt.isBlank()) {
             properties.remove("chat.system.prompt");
         } else {
@@ -69,11 +69,11 @@ public class UserConfig {
         save();
     }
 
-    public String getTheme() {
+    public synchronized String getTheme() {
         return properties.getProperty("app.theme");
     }
 
-    public void setTheme(String theme) {
+    public synchronized void setTheme(String theme) {
         if (theme == null || theme.isBlank()) {
             properties.remove("app.theme");
         } else {
@@ -82,7 +82,7 @@ public class UserConfig {
         save();
     }
 
-    public void clear() {
+    public synchronized void clear() {
         properties.clear();
         save();
     }

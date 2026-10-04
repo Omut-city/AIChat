@@ -17,8 +17,8 @@ public class AppConfig {
     private final Properties properties = new Properties();
     private final UserConfig userConfig = new UserConfig();
 
-    private String baseUrl;
-    private String systemPrompt;
+    private volatile String baseUrl;
+    private volatile String systemPrompt;
 
     public AppConfig() {
         load();

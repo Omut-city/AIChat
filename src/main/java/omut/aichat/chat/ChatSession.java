@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatSession {
 
-    private Future<?> currentRequest;
-    private volatile boolean currentRequestCancelled = false;
+    private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
     private final List<AIChatMessage> history = new ArrayList<>();
@@ -47,15 +46,14 @@ public class ChatSession {
         Object token = new Object();
         requestToken.set(token);
 
+        history.add(userMessage);
+        notifyMessage(userMessage);
         notifyThinkingStarted();
 
         try {
-            currentRequest = executor.submit(() -> {
+            Future<?> future = executor.submit(() -> {
                 long start = System.nanoTime();
                 try {
-                    history.add(userMessage);
-                    notifyMessage(userMessage);
-
                     llmService.askStreaming(buildRequestHistory(), new StreamingCallback() {
 
                         @Override
@@ -92,11 +90,12 @@ public class ChatSession {
                     notifyMessage(error);
                 } finally {
                     if (requestToken.compareAndSet(token, null)) {
-                        currentRequest = null;
+                        currentRequest.set(null);
                         notifyThinkingFinished();
                     }
                 }
             });
+            currentRequest.set(future);
         } catch (RejectedExecutionException e) {
             requestToken.set(null);
             notifyThinkingFinished();
@@ -205,11 +204,10 @@ public class ChatSession {
 
         if (!requestToken.compareAndSet(token, null)) return;
 
-        Future<?> request = currentRequest;
+        Future<?> request = currentRequest.getAndSet(null);
         if (request != null && !request.isDone()) {
             request.cancel(true);
         }
-        currentRequest = null;
 
         notifyRequestCancelled();
         notifyThinkingFinished();
