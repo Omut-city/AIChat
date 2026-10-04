@@ -8,6 +8,7 @@ module omut.aichat {
     requires langchain4j.core;
     requires com.fasterxml.jackson.databind;
     requires org.slf4j;
+    requires atlantafx.base;
 
     exports omut.aichat;
     exports omut.aichat.chat;

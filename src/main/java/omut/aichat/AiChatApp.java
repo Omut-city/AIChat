@@ -1,5 +1,6 @@
 package omut.aichat;
 
+import atlantafx.base.theme.NordLight;
 import javafx.application.Application;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -20,6 +21,8 @@ public class AiChatApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        Application.setUserAgentStylesheet(new NordLight().getUserAgentStylesheet());
+
         AppConfig config = new AppConfig();
         LlmService llmService = new OllamaLlmService(config, config.defaultModel());
         session = new ChatSession(llmService);
