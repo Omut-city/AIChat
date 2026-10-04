@@ -281,7 +281,7 @@ public class ChatView implements ChatListener {
                     message.durationMillis() / 1000.0,
                     message.text()
             );
-            case SYSTEM -> "> " + message.text().replace("\n", "\n> ").stripTrailing();
+            case SYSTEM -> ChatExporter.quoteSystem(message.text());
         };
     }
 

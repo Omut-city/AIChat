@@ -34,13 +34,20 @@ public class ChatExporter {
                     sb.append(msg.text()).append("\n\n");
                 }
                 case SYSTEM -> {
-                    String quoted = "> " + msg.text().replace("\n", "\n> ").stripTrailing();
-                    sb.append(quoted).append("\n\n");
+                    sb.append(quoteSystem(msg.text())).append("\n\n");
                 }
             }
         }
 
         Files.writeString(file, sb.toString());
+    }
+
+    /**
+     * Formats a system message as a Markdown blockquote.
+     * Multi-line messages are quoted line by line.
+     */
+    public static String quoteSystem(String text) {
+        return "> " + text.replace("\n", "\n> ").stripTrailing();
     }
 
     private static String formatDuration(long millis) {
