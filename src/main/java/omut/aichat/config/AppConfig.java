@@ -152,4 +152,24 @@ public class AppConfig {
             return defaultValue;
         }
     }
+
+    public String defaultTheme() {
+        return properties.getProperty("app.theme", "NordLight");
+    }
+
+    public String theme() {
+        String userValue = userConfig.getTheme();
+        if (userValue != null && !userValue.isBlank()) {
+            return userValue;
+        }
+        return defaultTheme();
+    }
+
+    public void setTheme(String theme) {
+        if (theme == null || theme.isBlank()) {
+            userConfig.setTheme(null);
+        } else {
+            userConfig.setTheme(theme);
+        }
+    }
 }

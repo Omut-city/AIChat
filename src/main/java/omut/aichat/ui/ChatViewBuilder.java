@@ -3,15 +3,7 @@ package omut.aichat.ui;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.Label;
-import javafx.scene.control.Menu;
-import javafx.scene.control.MenuBar;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.Separator;
-import javafx.scene.control.TextField;
-import javafx.scene.control.ToolBar;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -43,9 +35,16 @@ public class ChatViewBuilder {
     public final Label speedLabel = new Label("");
     public final Label noticeLabel = new Label("");
 
+    public final Menu viewMenu = new Menu("View");
     public final MenuBar menuBar = new MenuBar();
     public final MenuItem exitMenuItem = new MenuItem("Exit");
     public final MenuItem aboutMenuItem = new MenuItem("About AIChat");
+
+    public final ToggleGroup themeGroup = new ToggleGroup();
+    public final RadioMenuItem nordLightItem = new RadioMenuItem("Nord Light");
+    public final RadioMenuItem nordDarkItem  = new RadioMenuItem("Nord Dark");
+    public final RadioMenuItem primerLightItem = new RadioMenuItem("Primer Light");
+    public final RadioMenuItem primerDarkItem  = new RadioMenuItem("Primer Dark");
 
     public Parent build() {
 
@@ -55,7 +54,22 @@ public class ChatViewBuilder {
         Menu helpMenu = new Menu("Help");
         helpMenu.getItems().add(aboutMenuItem);
 
-        menuBar.getMenus().addAll(fileMenu, helpMenu);
+        nordLightItem.setToggleGroup(themeGroup);
+        nordDarkItem.setToggleGroup(themeGroup);
+        primerLightItem.setToggleGroup(themeGroup);
+        primerDarkItem.setToggleGroup(themeGroup);
+        nordLightItem.setUserData("NordLight");
+        nordDarkItem.setUserData("NordDark");
+        primerLightItem.setUserData("PrimerLight");
+        primerDarkItem.setUserData("PrimerDark");
+
+        viewMenu.getItems().addAll(
+                nordLightItem, nordDarkItem,
+                new SeparatorMenuItem(),
+                primerLightItem, primerDarkItem
+        );
+
+        menuBar.getMenus().addAll(fileMenu, viewMenu, helpMenu);
 
         modelSelector.setPromptText("Model");
         modelSelector.setDisable(true);

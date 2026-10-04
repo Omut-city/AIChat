@@ -69,6 +69,19 @@ public class UserConfig {
         save();
     }
 
+    public String getTheme() {
+        return properties.getProperty("app.theme");
+    }
+
+    public void setTheme(String theme) {
+        if (theme == null || theme.isBlank()) {
+            properties.remove("app.theme");
+        } else {
+            properties.setProperty("app.theme", theme);
+        }
+        save();
+    }
+
     public void clear() {
         properties.clear();
         save();

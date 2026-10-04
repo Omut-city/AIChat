@@ -260,6 +260,18 @@ public class ChatSession {
         });
     }
 
+    public String theme() {
+        return llmService.theme();
+    }
+
+    public void setTheme(String theme) {
+        llmService.setTheme(theme);
+    }
+
+    public String defaultTheme() {
+        return llmService.defaultTheme();
+    }
+
     public String systemPrompt() {
         return llmService.systemPrompt();
     }

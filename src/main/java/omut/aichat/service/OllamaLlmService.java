@@ -261,4 +261,19 @@ public class OllamaLlmService implements LlmService {
             callback.onError(e);
         }
     }
+
+    @Override
+    public String theme() {
+        return config.theme();
+    }
+
+    @Override
+    public void setTheme(String theme) {
+        config.setTheme(theme);
+    }
+
+    @Override
+    public String defaultTheme() {
+        return config.defaultTheme();
+    }
 }

@@ -9,6 +9,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
+import omut.aichat.AiChatApp;
 import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
 import omut.aichat.chat.AIChatMessage;
@@ -38,6 +39,9 @@ public class ChatView implements ChatListener {
     private final StringBuilder markdownHistory = new StringBuilder();
     private final Parser markdownParser = Parser.builder().build();
     private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().build();
+
+    private String currentHighlightCss;
+    private String currentBodyClass;
     private HtmlTemplate htmlTemplate;
     private long lastStreamRenderNanos = 0;
 
@@ -45,6 +49,9 @@ public class ChatView implements ChatListener {
     private boolean llmAvailable = false;
 
     public ChatView(ChatSession session) {
+        Theme theme = Theme.fromId(session.theme());
+        this.currentHighlightCss = theme.highlightCss();
+        this.currentBodyClass = theme.bodyClass();
         this.session = session;
         this.session.addListener(this);
         this.view = new ChatViewBuilder();
@@ -76,6 +83,20 @@ public class ChatView implements ChatListener {
                         executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
                     }
                 });
+        view.themeGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == null) return;
+            String themeId = (String) newToggle.getUserData();
+            applyTheme(themeId);
+        });
+
+// Установить текущую тему (при старте)
+        Theme current = Theme.fromId(session.theme());
+        switch (current) {
+            case NORD_LIGHT   -> view.nordLightItem.setSelected(true);
+            case NORD_DARK    -> view.nordDarkItem.setSelected(true);
+            case PRIMER_LIGHT -> view.primerLightItem.setSelected(true);
+            case PRIMER_DARK  -> view.primerDarkItem.setSelected(true);
+        }
 
         renderMarkdown();
 
@@ -342,7 +363,7 @@ public class ChatView implements ChatListener {
 
     private void renderMarkdown() {
         String html = markdownRenderer.render(markdownParser.parse(markdownHistory.toString()));
-        view.chatView.getEngine().loadContent(wrapInHtml(html));
+        view.chatView.getEngine().loadContent(wrapInHtml(html, currentHighlightCss, currentBodyClass));
     }
 
     private HtmlTemplate template() {
@@ -353,9 +374,14 @@ public class ChatView implements ChatListener {
     }
 
     private String wrapInHtml(String body) {
-        String css = HtmlTemplate.readResource(session.highlightCssPath());
+        return wrapInHtml(body, currentHighlightCss, currentBodyClass);
+    }
+
+    private String wrapInHtml(String body, String highlightCss, String bodyClass) {
+        String css = HtmlTemplate.readResource("/highlight/" + highlightCss);
         String js = HtmlTemplate.readResource(session.highlightJsPath());
-        return template().render(css, js, body);
+        String base = template().render(css, js, body);
+        return base.replace("<body>", "<body class=\"" + bodyClass + "\">");
     }
 
     private void onAbout() {
@@ -426,5 +452,18 @@ public class ChatView implements ChatListener {
         } catch (Exception e) {
             log.warn("executeScript failed: {} — {}", script, e.getMessage());
         }
+    }
+
+    private void applyTheme(String themeId) {
+        Theme theme = Theme.fromId(themeId);
+
+        session.setTheme(theme.id());
+
+        AiChatApp.applyTheme(theme.id());
+
+        currentHighlightCss = theme.highlightCss();
+        currentBodyClass = theme.bodyClass();
+
+        renderMarkdown();
     }
 }

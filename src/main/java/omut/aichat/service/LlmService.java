@@ -24,4 +24,7 @@ public interface LlmService {
     String chatTemplatePath();
     int attachMaxChars();
     void askStreaming(List<AIChatMessage> conversation, StreamingCallback callback);
+    String theme();
+    void setTheme(String theme);
+    String defaultTheme();
 }
