@@ -95,6 +95,7 @@ public class ChatViewBuilder {
         inputField.setPromptText("Type a message and press Enter...");
         HBox.setHgrow(inputField, Priority.ALWAYS);
         attachButton.setDisable(true);
+        stopButton.setDisable(true);
 
         HBox inputBox = new HBox(8, attachButton, inputField, sendButton, stopButton, clearButton);
         inputBox.setAlignment(Pos.CENTER_LEFT);

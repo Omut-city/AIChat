@@ -5,12 +5,13 @@ import omut.aichat.service.LlmService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatSession {
 
     private Future<?> currentRequest;
     private volatile boolean currentRequestCancelled = false;
-
+    private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
     private final List<AIChatMessage> history = new ArrayList<>();
     private final List<ChatListener> listeners = new ArrayList<>();
@@ -41,8 +42,11 @@ public class ChatSession {
         if (userText == null || userText.isBlank()) return;
         if (executor.isShutdown()) return;
 
-        currentRequestCancelled = false;
         AIChatMessage userMessage = AIChatMessage.user(userText.trim());
+
+        Object token = new Object();
+        requestToken.set(token);
+
         notifyThinkingStarted();
 
         try {
@@ -56,13 +60,13 @@ public class ChatSession {
 
                         @Override
                         public void onToken(String chunk, String fullText) {
-                            if (currentRequestCancelled) return;
+                            if (requestToken.get() != token) return;
                             notifyToken(chunk, fullText);
                         }
 
                         @Override
                         public void onComplete(LlmResponse response) {
-                            if (currentRequestCancelled) return;
+                            if (requestToken.get() != token) return;
                             long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
                             AIChatMessage assistantMessage =
                                     AIChatMessage.assistant(response.text(), response.durationMillis());
@@ -74,7 +78,7 @@ public class ChatSession {
 
                         @Override
                         public void onError(Throwable error) {
-                            if (currentRequestCancelled) return;
+                            if (requestToken.get() != token) return;
                             AIChatMessage errorMsg = AIChatMessage.system(friendlyError(error));
                             history.add(errorMsg);
                             notifyMessage(errorMsg);
@@ -82,20 +86,19 @@ public class ChatSession {
                     });
 
                 } catch (Exception e) {
-                    if (currentRequestCancelled) return;
+                    if (requestToken.get() != token) return;
                     AIChatMessage error = AIChatMessage.system(friendlyError(e));
                     history.add(error);
                     notifyMessage(error);
                 } finally {
-                    boolean wasCancelled = currentRequestCancelled;
-                    currentRequest = null;
-                    currentRequestCancelled = false;
-                    if (!wasCancelled) {
+                    if (requestToken.compareAndSet(token, null)) {
+                        currentRequest = null;
                         notifyThinkingFinished();
                     }
                 }
             });
         } catch (RejectedExecutionException e) {
+            requestToken.set(null);
             notifyThinkingFinished();
         }
     }
@@ -197,14 +200,19 @@ public class ChatSession {
     }
 
     public void cancelCurrentRequest() {
+        Object token = requestToken.get();
+        if (token == null) return;
+
+        if (!requestToken.compareAndSet(token, null)) return;
+
         Future<?> request = currentRequest;
         if (request != null && !request.isDone()) {
-            currentRequestCancelled = true;
             request.cancel(true);
-            currentRequest = null;
-            notifyRequestCancelled();
-            notifyThinkingFinished();
         }
+        currentRequest = null;
+
+        notifyRequestCancelled();
+        notifyThinkingFinished();
     }
 
     private String friendlyError(Throwable ex) {

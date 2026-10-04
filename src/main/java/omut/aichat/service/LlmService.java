@@ -7,7 +7,6 @@ import omut.aichat.chat.StreamingCallback;
 import java.util.List;
 
 public interface LlmService {
-    LlmResponse ask(List<AIChatMessage> conversation);
     boolean isAvailable();
     List<String> listModels();
     void switchModel(String modelName);

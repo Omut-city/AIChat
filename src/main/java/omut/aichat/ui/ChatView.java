@@ -144,12 +144,8 @@ public class ChatView implements ChatListener {
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            if (message.role() == AIChatMessage.Role.ASSISTANT) {
-                executeScriptSafely("finalizeStreaming();");
-            } else {
-                markdownHistory.append(formatMarkdown(message)).append("\n\n");
-                renderMarkdown();
-            }
+            markdownHistory.append(formatMarkdown(message)).append("\n\n");
+            renderMarkdown();
         });
     }
 

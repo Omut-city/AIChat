@@ -6,11 +6,9 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
-import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.LlmResponse;
@@ -32,37 +30,12 @@ public class OllamaLlmService implements LlmService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final AppConfig config;
-    private ChatModel model;
     private String currentModel;
     private StreamingChatModel streamingModel;
 
     public OllamaLlmService(AppConfig config, String initialModel) {
         this.config = config;
         switchModel(initialModel);
-    }
-
-    @Override
-    public LlmResponse ask(List<AIChatMessage> conversation) {
-        List<ChatMessage> messages = new ArrayList<>();
-        for (AIChatMessage msg : conversation) {
-            messages.add(toLangchainMessage(msg));
-        }
-
-        long start = System.nanoTime();
-        ChatResponse response = model.chat(messages);
-        long elapsedNanos = System.nanoTime() - start;
-
-        AiMessage ai = response.aiMessage();
-        int outputTokens = response.tokenUsage() != null
-                ? response.tokenUsage().outputTokenCount()
-                : 0;
-
-        return new LlmResponse(
-                ai.text(),
-                elapsedNanos / 1_000_000,
-                outputTokens,
-                elapsedNanos
-        );
     }
 
     @Override
@@ -116,15 +89,6 @@ public class OllamaLlmService implements LlmService {
             throw new IllegalArgumentException("Model name must not be blank");
         }
         this.currentModel = modelName;
-
-        this.model = OllamaChatModel.builder()
-                .baseUrl(config.getBaseUrl())
-                .modelName(modelName)
-                .timeout(Duration.ofMinutes(config.requestTimeoutMinutes()))
-                .temperature(config.temperature())
-                .logRequests(true)
-                .logResponses(true)
-                .build();
 
         this.streamingModel = OllamaStreamingChatModel.builder()
                 .baseUrl(config.getBaseUrl())
