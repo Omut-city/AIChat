@@ -1,8 +1,7 @@
 package omut.aichat.config;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
@@ -26,8 +25,8 @@ public class UserConfig {
 
     private void load() {
         if (!Files.exists(file)) return;
-        try (InputStream in = Files.newInputStream(file)) {
-            properties.load(in);
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            properties.load(reader);
         } catch (IOException e) {
             // ignore — start with empty settings
         }
@@ -36,8 +35,8 @@ public class UserConfig {
     private void save() {
         try {
             Files.createDirectories(file.getParent());
-            try (OutputStream out = Files.newOutputStream(file)) {
-                properties.store(out, "AIChat user settings");
+            try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+                properties.store(writer, "AIChat user settings");
             }
         } catch (IOException e) {
             // ignore — settings won't persist, app keeps working
