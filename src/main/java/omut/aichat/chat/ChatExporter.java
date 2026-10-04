@@ -34,7 +34,8 @@ public class ChatExporter {
                     sb.append(msg.text()).append("\n\n");
                 }
                 case SYSTEM -> {
-                    sb.append("> ").append(msg.text()).append("\n\n");
+                    String quoted = "> " + msg.text().replace("\n", "\n> ").stripTrailing();
+                    sb.append(quoted).append("\n\n");
                 }
             }
         }
