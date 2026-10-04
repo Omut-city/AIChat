@@ -12,11 +12,22 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class ChatSession {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatView.class);
+    private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
 
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
+    /**
+     * Conversation history.
+     * <p>
+     * Access rule: only the JavaFX Application Thread and the single
+     * {@code chat-worker} thread touch this list, and never concurrently.
+     * The UI enforces this via {@link omut.aichat.ui.ChatView}'s
+     * {@code updateControls()}, which disables all input widgets while
+     * a request is in flight. Breaking this invariant requires switching
+     * to {@link java.util.Collections#synchronizedList(java.util.List)} and wrapping
+     * every iteration in {@code synchronized (history)}.
+     */
     private final List<AIChatMessage> history = new ArrayList<>();
     private final List<ChatListener> listeners = new CopyOnWriteArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
