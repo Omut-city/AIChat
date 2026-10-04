@@ -1,7 +1,6 @@
 package omut.aichat.chat;
 
 import omut.aichat.service.LlmService;
-import omut.aichat.ui.ChatView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -231,19 +230,33 @@ public class ChatSession {
 
     private String friendlyError(Throwable ex) {
         if (ex == null) return "Unknown error.";
-        String msg = ex.getMessage();
-        if (msg == null) return ex.getClass().getSimpleName();
 
-        if (msg.contains("Connection refused") || msg.contains("ConnectException")) {
+        Throwable cause = rootCause(ex);
+
+        if (cause instanceof java.net.ConnectException
+                || cause instanceof java.net.NoRouteToHostException) {
             return "Cannot connect to Ollama. Is it running?";
         }
+        if (cause instanceof java.net.SocketTimeoutException
+                || cause instanceof java.util.concurrent.TimeoutException) {
+            return "Request timed out. The model may be loading, try again.";
+        }
+
+        String msg = cause.getMessage();
+        if (msg == null) return cause.getClass().getSimpleName();
+
         if (msg.contains("model") && msg.contains("not found")) {
             return "Model not found. Check that the model is pulled via 'ollama list'.";
         }
-        if (msg.contains("timeout") || msg.contains("Timeout")) {
-            return "Request timed out. The model may be loading, try again.";
-        }
         return msg;
+    }
+
+    private static Throwable rootCause(Throwable ex) {
+        Throwable current = ex;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     public void setBaseUrl(String baseUrl) {
