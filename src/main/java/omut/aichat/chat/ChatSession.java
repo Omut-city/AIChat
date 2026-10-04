@@ -3,11 +3,11 @@ package omut.aichat.chat;
 import omut.aichat.service.LlmService;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 
 public class ChatSession {
 
@@ -33,55 +33,61 @@ public class ChatSession {
     }
 
     public List<AIChatMessage> getHistory() {
-        return Collections.unmodifiableList(history);
+        return List.copyOf(history);
     }
 
     public void checkAvailability() {
-        executor.submit(() -> notifyStatus(llmService.isAvailable()));
+        submit(() -> notifyStatus(llmService.isAvailable()));
     }
 
     public void send(String userText) {
         if (userText == null || userText.isBlank()) return;
+        if (executor.isShutdown()) return;
 
         currentRequestCancelled = false;
         AIChatMessage userMessage = AIChatMessage.user(userText.trim());
-        history.add(userMessage);
-        notifyMessage(userMessage);
         notifyThinkingStarted();
 
-        currentRequest = executor.submit(() -> {
-            long start = System.nanoTime();
-            try {
-                LlmResponse reply = llmService.ask(buildRequestHistory());
-                long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
+        try {
+            currentRequest = executor.submit(() -> {
+                long start = System.nanoTime();
+                try {
+                    history.add(userMessage);
+                    notifyMessage(userMessage);
 
-                if (currentRequestCancelled) {
-                    return;
-                }
+                    LlmResponse reply = llmService.ask(buildRequestHistory());
+                    long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
 
-                AIChatMessage assistantMessage = AIChatMessage.assistant(reply.text(), reply.durationMillis());
-                history.add(assistantMessage);
-                notifyMessage(assistantMessage);
-                notifyResponseTime(elapsedMillis);
-                notifyTokensPerSecond(reply.tokensPerSecond());
-            } catch (Exception e) {
-                if (currentRequestCancelled) return;
-                AIChatMessage error = AIChatMessage.system(friendlyError(e));
-                history.add(error);
-                notifyMessage(error);
-            } finally {
-                boolean wasCancelled = currentRequestCancelled;
-                currentRequest = null;
-                currentRequestCancelled = false;
-                if (!wasCancelled) {
-                    notifyThinkingFinished();
+                    if (currentRequestCancelled) {
+                        return;
+                    }
+
+                    AIChatMessage assistantMessage = AIChatMessage.assistant(reply.text(), reply.durationMillis());
+                    history.add(assistantMessage);
+                    notifyMessage(assistantMessage);
+                    notifyResponseTime(elapsedMillis);
+                    notifyTokensPerSecond(reply.tokensPerSecond());
+                } catch (Exception e) {
+                    if (currentRequestCancelled) return;
+                    AIChatMessage error = AIChatMessage.system(friendlyError(e));
+                    history.add(error);
+                    notifyMessage(error);
+                } finally {
+                    boolean wasCancelled = currentRequestCancelled;
+                    currentRequest = null;
+                    currentRequestCancelled = false;
+                    if (!wasCancelled) {
+                        notifyThinkingFinished();
+                    }
                 }
-            }
-        });
+            });
+        } catch (RejectedExecutionException e) {
+            notifyThinkingFinished();
+        }
     }
 
     public void loadModels() {
-        executor.submit(() -> {
+        submit(() -> {
             List<String> models = llmService.listModels();
             notifyModelsLoaded(models);
         });
@@ -92,7 +98,7 @@ public class ChatSession {
             notifyMessage(AIChatMessage.system("Invalid model name."));
             return;
         }
-        executor.submit(() -> {
+        submit(() -> {
             try {
                 llmService.switchModel(modelName);
                 notifyModelChanged(modelName);
@@ -187,7 +193,7 @@ public class ChatSession {
     }
 
     public void setBaseUrl(String baseUrl) {
-        executor.submit(() -> {
+        submit(() -> {
             try {
                 llmService.setBaseUrl(baseUrl);
                 notifyMessage(AIChatMessage.system("Base URL set to: " + llmService.baseUrl()));
@@ -199,7 +205,7 @@ public class ChatSession {
     }
 
     public void setSystemPrompt(String prompt) {
-        executor.submit(() -> {
+        submit(() -> {
             try {
                 llmService.setSystemPrompt(prompt);
                 String updated = llmService.systemPrompt();
@@ -294,5 +300,14 @@ public class ChatSession {
         trimmed.addAll(history.subList(from, total));
 
         return trimmed;
+    }
+
+    private void submit(Runnable task) {
+        if (executor.isShutdown()) return;
+        try {
+            executor.submit(task);
+        } catch (RejectedExecutionException e) {
+            // executor is shutting down — ignore
+        }
     }
 }
