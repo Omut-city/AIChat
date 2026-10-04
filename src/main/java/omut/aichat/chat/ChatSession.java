@@ -13,7 +13,7 @@ public class ChatSession {
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
     private final List<AIChatMessage> history = new ArrayList<>();
-    private final List<ChatListener> listeners = new ArrayList<>();
+    private final List<ChatListener> listeners = new CopyOnWriteArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
