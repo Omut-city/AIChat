@@ -163,9 +163,13 @@ public class ChatView implements ChatListener {
     @Override
     public void onRequestCancelled() {
         Platform.runLater(() -> {
+            busy = false;
             view.typingLabel.setText("");
+            view.stopButton.setDisable(true);
             markdownHistory.append("> System: Generation cancelled.\n\n");
             renderMarkdown();
+            updateControls();
+            view.inputField.requestFocus();
         });
     }
 
