@@ -22,7 +22,7 @@
         <commonmark.version>0.24.0</commonmark.version>
         <javafx.version>25.0.4</javafx.version>
         <slf4j-simple.version>2.0.16</slf4j-simple.version>
-        <langchain4j.version>0.36.2</langchain4j.version>
+        <langchain4j.version>1.21.0</langchain4j.version>
         <jackson.version>2.22.3</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
     </properties>

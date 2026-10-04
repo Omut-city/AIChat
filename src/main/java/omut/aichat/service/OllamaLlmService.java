@@ -6,9 +6,9 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatModel;
-import dev.langchain4j.model.output.Response;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.LlmResponse;
 import omut.aichat.config.AppConfig;
@@ -27,7 +27,7 @@ public class OllamaLlmService implements LlmService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final AppConfig config;
-    private ChatLanguageModel model;
+    private ChatModel model;
     private String currentModel;
 
     public OllamaLlmService(AppConfig config, String initialModel) {
@@ -43,10 +43,10 @@ public class OllamaLlmService implements LlmService {
         }
 
         long start = System.nanoTime();
-        Response<AiMessage> response = model.generate(messages);
+        ChatResponse response = model.chat(messages);
         long elapsedNanos = System.nanoTime() - start;
 
-        AiMessage ai = response.content();
+        AiMessage ai = response.aiMessage();
         int outputTokens = response.tokenUsage() != null
                 ? response.tokenUsage().outputTokenCount()
                 : 0;
