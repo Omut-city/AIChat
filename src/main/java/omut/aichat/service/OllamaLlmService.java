@@ -23,6 +23,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class OllamaLlmService implements LlmService {
 
@@ -219,7 +221,11 @@ public class OllamaLlmService implements LlmService {
         });
 
         try {
-            latch.await();
+            if (!latch.await(config.requestTimeoutMinutes(), TimeUnit.MINUTES)) {
+                callback.onError(new TimeoutException(
+                        "Streaming did not complete within "
+                                + config.requestTimeoutMinutes() + " minutes"));
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             callback.onError(e);
