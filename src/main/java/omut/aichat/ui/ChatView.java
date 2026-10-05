@@ -23,9 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class ChatView implements ChatListener {
 
@@ -34,24 +32,17 @@ public class ChatView implements ChatListener {
 
     private PauseTransition noticeTimer;
 
+    private final AssetLoader assets = new AssetLoader();
     private final ChatSession session;
     private final ChatViewBuilder view;
     private final StringBuilder markdownHistory = new StringBuilder();
     private final MarkdownRenderer markdown = new MarkdownRenderer();
-    private final Map<String, String> assetCache = new HashMap<>();
 
-    private String currentHighlightCss;
-    private String currentBodyClass;
-    private HtmlTemplate htmlTemplate;
     private long lastStreamRenderNanos = 0;
-
     private boolean busy = false;
     private boolean llmAvailable = false;
 
     public ChatView(ChatSession session) {
-        Theme theme = Theme.fromId(session.theme());
-        this.currentHighlightCss = theme.highlightCss();
-        this.currentBodyClass = theme.bodyClass();
         this.session = session;
         this.session.addListener(this);
         this.view = new ChatViewBuilder();
@@ -174,7 +165,11 @@ public class ChatView implements ChatListener {
     public void onCleared() {
         Platform.runLater(() -> {
             markdownHistory.setLength(0);
-            view.chatView.getEngine().loadContent(wrapInHtml("", currentHighlightCss, currentBodyClass));
+            view.chatView.getEngine().loadContent(
+                    assets.wrapInHtml("", Theme.fromId(session.theme()),
+                            session.chatTemplatePath(), session.highlightJsPath()
+                    )
+            );
             view.noticeLabel.setText("");
         });
     }
@@ -343,25 +338,11 @@ public class ChatView implements ChatListener {
 
     private void renderMarkdown() {
         String html = markdown.renderToHtml(markdownHistory.toString());
-        view.chatView.getEngine().loadContent(wrapInHtml(html, currentHighlightCss, currentBodyClass));
-    }
-
-    private HtmlTemplate template() {
-        if (htmlTemplate == null) {
-            htmlTemplate = new HtmlTemplate(session.chatTemplatePath());
-        }
-        return htmlTemplate;
-    }
-
-    private String wrapInHtml(String body, String highlightCss, String bodyClass) {
-        String css = asset("/highlight/" + highlightCss);
-        String js  = asset(session.highlightJsPath());
-        String base = template().render(css, js, body);
-        return base.replace("<body>", "<body class=\"" + bodyClass + "\">");
-    }
-
-    private String asset(String path) {
-        return assetCache.computeIfAbsent(path, HtmlTemplate::readResource);
+        view.chatView.getEngine().loadContent(
+                assets.wrapInHtml(html, Theme.fromId(session.theme()),
+                        session.chatTemplatePath(), session.highlightJsPath()
+                )
+        );
     }
 
     private void onAbout() {
@@ -406,14 +387,8 @@ public class ChatView implements ChatListener {
 
     private void applyTheme(String themeId) {
         Theme theme = Theme.fromId(themeId);
-
         session.setTheme(theme.id());
-
         AiChatApp.applyTheme(theme.id());
-
-        currentHighlightCss = theme.highlightCss();
-        currentBodyClass = theme.bodyClass();
-
         renderMarkdown();
     }
 }
