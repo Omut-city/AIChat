@@ -10,10 +10,8 @@ import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
 import omut.aichat.AiChatApp;
-import omut.aichat.chat.ChatExporter;
-import omut.aichat.chat.ChatListener;
-import omut.aichat.chat.AIChatMessage;
-import omut.aichat.chat.ChatSession;
+import omut.aichat.chat.*;
+import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -176,13 +174,7 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onResponseTime(long millis) {
-        Platform.runLater(() -> {
-            if (millis < 1000) {
-                view.lastResponseLabel.setText("Last: " + millis + "ms");
-            } else {
-                view.lastResponseLabel.setText(String.format(java.util.Locale.US, "Last: %.1fs", millis / 1000.0));
-            }
-        });
+        Platform.runLater(() -> view.lastResponseLabel.setText("Last: " + TimeFormat.shortDuration(millis)));
     }
 
     @Override

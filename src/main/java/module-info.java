@@ -15,4 +15,5 @@ module omut.aichat {
     exports omut.aichat.config;
     exports omut.aichat.service;
     exports omut.aichat.ui;
+    exports omut.aichat.utils;
 }

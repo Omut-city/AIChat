@@ -1,5 +1,7 @@
 package omut.aichat.chat;
 
+import omut.aichat.utils.TimeFormat;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +31,7 @@ public class ChatExporter {
                 case ASSISTANT -> {
                     sb.append("## AI\n\n");
                     if (msg.durationMillis() > 0) {
-                        sb.append("_").append(formatDuration(msg.durationMillis())).append("_\n\n");
+                        sb.append("_").append(TimeFormat.shortDuration(msg.durationMillis())).append("_\n\n");
                     }
                     sb.append(msg.text()).append("\n\n");
                 }
@@ -50,8 +52,4 @@ public class ChatExporter {
         return "> " + text.replace("\n", "\n> ").stripTrailing();
     }
 
-    private static String formatDuration(long millis) {
-        if (millis < 1000) return millis + " ms";
-        return String.format(java.util.Locale.US, "%.1f s", millis / 1000.0);
-    }
 }
