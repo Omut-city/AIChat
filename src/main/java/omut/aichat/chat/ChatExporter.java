@@ -3,6 +3,7 @@ package omut.aichat.chat;
 import omut.aichat.utils.TimeFormat;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -41,7 +42,7 @@ public class ChatExporter {
             }
         }
 
-        Files.writeString(file, sb.toString());
+        Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
     }
 
     /**
