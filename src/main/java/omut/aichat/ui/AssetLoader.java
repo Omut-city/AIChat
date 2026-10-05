@@ -13,7 +13,7 @@ import java.util.Map;
 public final class AssetLoader {
 
     private final Map<String, String> assetCache = new HashMap<>();
-    private HtmlTemplate template;
+    private final Map<String, HtmlTemplate> templateCache = new HashMap<>();
 
     /** Wraps a body fragment into the chat HTML template for a theme. */
     public String wrapInHtml(
@@ -29,10 +29,7 @@ public final class AssetLoader {
     }
 
     private HtmlTemplate template(String path) {
-        if (template == null) {
-            template = new HtmlTemplate(path);
-        }
-        return template;
+        return templateCache.computeIfAbsent(path, HtmlTemplate::new);
     }
 
     private String asset(String path) {
