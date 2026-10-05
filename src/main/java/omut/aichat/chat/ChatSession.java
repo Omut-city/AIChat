@@ -1,5 +1,6 @@
 package omut.aichat.chat;
 
+import omut.aichat.config.AppConfig;
 import omut.aichat.service.LlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,8 @@ public class ChatSession {
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
+    private final AppConfig config;
+
     /**
      * Conversation history.
      * <p>
@@ -35,9 +38,13 @@ public class ChatSession {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
-    public ChatSession(LlmService llmService) {
+    public ChatSession(
+            LlmService llmService,
+            AppConfig config
+    ) {
         this.llmService = llmService;
-        String prompt = llmService.systemPrompt();
+        this.config = config;
+        String prompt = config.systemPrompt();
         if (!prompt.isBlank()) {
             history.add(AIChatMessage.system(prompt));
         }
@@ -157,7 +164,7 @@ public class ChatSession {
             return;
         }
 
-        int max = llmService.attachMaxChars();
+        int max = config.attachMaxChars();
         if (content.length() > max) {
             notifyMessage(AIChatMessage.system(
                     "File too large: " + content.length() + " chars, limit is " + max));
@@ -176,7 +183,7 @@ public class ChatSession {
     public void clear() {
         submit(() -> {
             history.clear();
-            String prompt = llmService.systemPrompt();
+            String prompt = config.systemPrompt();
             if (!prompt.isBlank()) {
                 history.add(AIChatMessage.system(prompt));
             }
@@ -215,7 +222,7 @@ public class ChatSession {
         submit(() -> {
             try {
                 llmService.setBaseUrl(baseUrl);
-                notifyMessage(AIChatMessage.system("Base URL set to: " + llmService.baseUrl()));
+                notifyMessage(AIChatMessage.system("Base URL set to: " + config.getBaseUrl()));
                 notifyStatus(llmService.isAvailable());
             } catch (Exception e) {
                 notifyMessage(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
@@ -226,8 +233,8 @@ public class ChatSession {
     public void setSystemPrompt(String prompt) {
         submit(() -> {
             try {
-                llmService.setSystemPrompt(prompt);
-                String updated = llmService.systemPrompt();
+                config.setSystemPrompt(prompt);
+                String updated = config.systemPrompt();
                 boolean hasSystem = !history.isEmpty()
                         && history.getFirst().role() == AIChatMessage.Role.SYSTEM;
 
@@ -271,7 +278,7 @@ public class ChatSession {
     }
 
     private List<AIChatMessage> buildRequestHistory() {
-        int max = llmService.historyMaxMessages();
+        int max = config.historyMaxMessages();
         int total = history.size();
         if (total <= max) {
             return new ArrayList<>(history);

@@ -106,62 +106,12 @@ public class OllamaLlmService implements LlmService {
         }
     }
 
-    @Override
-    public String baseUrl() {
-        return config.getBaseUrl();
-    }
-
     private ChatMessage toLangchainMessage(AIChatMessage msg) {
         return switch (msg.role()) {
             case USER -> UserMessage.from(msg.text());
             case ASSISTANT -> AiMessage.from(msg.text());
             case SYSTEM -> SystemMessage.from(msg.text());
         };
-    }
-
-    @Override
-    public String defaultBaseUrl() {
-        return config.defaultBaseUrl();
-    }
-
-    @Override
-    public String systemPrompt() {
-        return config.systemPrompt();
-    }
-
-    @Override
-    public void setSystemPrompt(String prompt) {
-        config.setSystemPrompt(prompt);
-    }
-
-    @Override
-    public String defaultSystemPrompt() {
-        return config.defaultSystemPrompt();
-    }
-
-    @Override
-    public int historyMaxMessages() {
-        return config.historyMaxMessages();
-    }
-
-    @Override
-    public String highlightJsPath() {
-        return config.highlightJsPath();
-    }
-
-    @Override
-    public String highlightCssPath() {
-        return config.highlightCssPath();
-    }
-
-    @Override
-    public String chatTemplatePath() {
-        return config.chatTemplatePath();
-    }
-
-    @Override
-    public int attachMaxChars() {
-        return config.attachMaxChars();
     }
 
     @Override
@@ -221,21 +171,6 @@ public class OllamaLlmService implements LlmService {
             Thread.currentThread().interrupt();
             callback.onError(e);
         }
-    }
-
-    @Override
-    public String theme() {
-        return config.theme();
-    }
-
-    @Override
-    public void setTheme(String theme) {
-        config.setTheme(theme);
-    }
-
-    @Override
-    public String defaultTheme() {
-        return config.defaultTheme();
     }
 
     /**

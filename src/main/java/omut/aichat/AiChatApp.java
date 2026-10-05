@@ -24,7 +24,7 @@ public class AiChatApp extends Application {
         AppConfig config = new AppConfig();
         Theme.fromId(config.theme()).apply();
         LlmService llmService = new OllamaLlmService(config, config.defaultModel());
-        session = new ChatSession(llmService);
+        session = new ChatSession(llmService, config);
 
         ChatView view = new ChatView(session, config, getHostServices());
         Parent root = view.build();
