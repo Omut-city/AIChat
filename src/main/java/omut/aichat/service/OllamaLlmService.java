@@ -17,6 +17,7 @@ import omut.aichat.config.AppConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.time.Duration;
@@ -44,13 +45,8 @@ public class OllamaLlmService implements LlmService {
     public boolean isAvailable() {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection)
-                    URI.create(config.getBaseUrl() + "/api/tags").toURL().openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(1500);
-            connection.setReadTimeout(1500);
-            int code = connection.getResponseCode();
-            return code == 200;
+            connection = openTagsConnection(1500);
+            return connection.getResponseCode() == 200;
         } catch (Exception e) {
             return false;
         } finally {
@@ -65,18 +61,13 @@ public class OllamaLlmService implements LlmService {
         List<String> result = new ArrayList<>();
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection)
-                    URI.create(config.getBaseUrl() + "/api/tags").toURL().openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(2000);
-            connection.setReadTimeout(2000);
-
+            connection = openTagsConnection(2000);
             JsonNode root = MAPPER.readTree(connection.getInputStream());
             for (JsonNode node : root.get("models")) {
                 result.add(node.get("name").asText());
             }
         } catch (Exception e) {
-            // return empty list on failure
+            log.warn("Failed to list models from {}: {}", config.getBaseUrl(), e.getMessage());
         } finally {
             if (connection != null) {
                 connection.disconnect();
@@ -245,5 +236,18 @@ public class OllamaLlmService implements LlmService {
     @Override
     public String defaultTheme() {
         return config.defaultTheme();
+    }
+
+    /**
+     * Opens a connection to Ollama's /api/tags endpoint.
+     * Caller is responsible for disconnecting.
+     */
+    private HttpURLConnection openTagsConnection(int timeoutMillis) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection)
+                URI.create(config.getBaseUrl() + "/api/tags").toURL().openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(timeoutMillis);
+        connection.setReadTimeout(timeoutMillis);
+        return connection;
     }
 }
