@@ -10,7 +10,10 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
-import omut.aichat.chat.*;
+import omut.aichat.chat.AIChatMessage;
+import omut.aichat.chat.ChatExporter;
+import omut.aichat.chat.ChatListener;
+import omut.aichat.chat.ChatSession;
 import omut.aichat.config.AppConfig;
 import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
@@ -87,13 +90,12 @@ public class ChatView implements ChatListener {
             applyTheme(themeId);
         });
 
-        Theme current = Theme.fromId(config.theme());
-
-        switch (current) {
-            case NORD_LIGHT   -> view.nordLightItem.setSelected(true);
-            case NORD_DARK    -> view.nordDarkItem.setSelected(true);
-            case PRIMER_LIGHT -> view.primerLightItem.setSelected(true);
-            case PRIMER_DARK  -> view.primerDarkItem.setSelected(true);
+        String currentId = config.theme();
+        for (Toggle toggle : view.themeGroup.getToggles()) {
+            if (currentId.equals(toggle.getUserData())) {
+                toggle.setSelected(true);
+                break;
+            }
         }
 
         renderMarkdown();
