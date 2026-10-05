@@ -81,8 +81,8 @@ public class ChatSession {
                         public void onComplete(LlmResponse response) {
                             if (requestToken.get() != token) return;
                             long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
-                            AIChatMessage assistantMessage =
-                                    AIChatMessage.assistant(response.text(), response.durationMillis());
+                            AIChatMessage assistantMessage = AIChatMessage.assistant(
+                                    response.text(), response.durationMillis(), currentModel());
                             history.add(assistantMessage);
                             notifyMessage(assistantMessage);
                             notifyResponseTime(elapsedMillis);

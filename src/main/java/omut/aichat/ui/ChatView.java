@@ -134,7 +134,7 @@ public class ChatView implements ChatListener {
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            markdownHistory.append(markdown.formatMessage(message, session.currentModel())).append("\n\n");
+            markdownHistory.append(markdown.formatMessage(message)).append("\n\n");
             renderMarkdown();
         });
     }

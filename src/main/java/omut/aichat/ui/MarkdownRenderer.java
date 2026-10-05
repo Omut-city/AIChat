@@ -27,16 +27,15 @@ public final class MarkdownRenderer {
     /**
      * Formats a chat message as Markdown for display in the transcript.
      *
-     * @param message      the message to format
-     * @param currentModel model name shown in the assistant header
+     * @param message the message to format
      */
-    public String formatMessage(AIChatMessage message, String currentModel) {
+    public String formatMessage(AIChatMessage message) {
         return switch (message.role()) {
             case USER -> "**You:** " + message.text();
             case ASSISTANT -> String.format(
                     Locale.US,
                     "**AI (%s, %.1fs):**%n%n%s",
-                    currentModel,
+                    message.model() != null ? message.model() : "unknown",
                     message.durationMillis() / 1000.0,
                     message.text()
             );
