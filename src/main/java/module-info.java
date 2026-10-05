@@ -9,6 +9,7 @@ module omut.aichat {
     requires org.slf4j;
     requires atlantafx.base;
     requires java.desktop;
+    requires java.net.http;
 
     exports omut.aichat;
     exports omut.aichat.chat;
