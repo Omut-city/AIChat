@@ -311,7 +311,7 @@ public class ChatSession {
         for (ChatListener l : listeners) {
             try { action.accept(l); }
             catch (Exception e) {
-                log.warn("Listener failed: {}", e.getMessage());
+                log.warn("Listener failed", e);
             }
         }
     }
