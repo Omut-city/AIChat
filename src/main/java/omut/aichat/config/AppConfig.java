@@ -1,5 +1,8 @@
 package omut.aichat.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -8,6 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 public class AppConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
 
     private static final String DEFAULT_BASE_URL = "http://127.0.0.1:11434";
     private static final String DEFAULT_MODEL = "qwen2.5:7b";
@@ -28,13 +33,17 @@ public class AppConfig {
 
     private void load() {
         try (InputStream in = AppConfig.class.getResourceAsStream(PROPERTIES_FILE)) {
-            if (in != null) {
-                try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                    properties.load(reader);
-                }
+            if (in == null) {
+                log.warn("Properties file not found on classpath: {} — using built-in defaults",
+                        PROPERTIES_FILE);
+                return;
+            }
+            try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                properties.load(reader);
+                log.debug("Loaded {} properties from {}", properties.size(), PROPERTIES_FILE);
             }
         } catch (IOException e) {
-            // Fall back to defaults; properties file is optional
+            log.warn("Failed to read {} — using built-in defaults: {}", PROPERTIES_FILE, e.getMessage());
         }
     }
 
@@ -53,30 +62,31 @@ public class AppConfig {
     }
 
     public String defaultBaseUrl() {
-        return properties.getProperty("ollama.base.url", DEFAULT_BASE_URL);
+        return properties.getProperty(ConfigKeys.OLLAMA_BASE_URL, DEFAULT_BASE_URL);
     }
 
     public String defaultModel() {
-        return properties.getProperty("ollama.default.model", DEFAULT_MODEL);
+        return properties.getProperty(ConfigKeys.OLLAMA_DEFAULT_MODEL, DEFAULT_MODEL);
     }
 
     public int requestTimeoutMinutes() {
-        return getInt("ollama.request.timeout.minutes", 5);
+        return getInt(ConfigKeys.OLLAMA_REQUEST_TIMEOUT_MINUTES, 5);
     }
 
     public double temperature() {
-        return getDouble("ollama.temperature", 0.5);
+        return getDouble(ConfigKeys.OLLAMA_TEMPERATURE, 0.5);
     }
+
     public String windowTitle() {
-        return properties.getProperty("app.window.title", "AIChat - Local Offline LLM");
+        return properties.getProperty(ConfigKeys.APP_WINDOW_TITLE, "AIChat - Local Offline LLM");
     }
 
     public int windowWidth() {
-        return getInt("app.window.width", 640);
+        return getInt(ConfigKeys.APP_WINDOW_WIDTH, 640);
     }
 
     public int windowHeight() {
-        return getInt("app.window.height", 540);
+        return getInt(ConfigKeys.APP_WINDOW_HEIGHT, 540);
     }
 
     public String systemPrompt() {
@@ -94,7 +104,7 @@ public class AppConfig {
     }
 
     public String defaultSystemPrompt() {
-        return properties.getProperty("chat.system.prompt", "");
+        return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, "");
     }
 
     private String resolveBaseUrl() {
@@ -102,7 +112,7 @@ public class AppConfig {
         if (userValue != null && !userValue.isBlank()) {
             return userValue;
         }
-        return properties.getProperty("ollama.base.url", DEFAULT_BASE_URL);
+        return properties.getProperty(ConfigKeys.OLLAMA_BASE_URL, DEFAULT_BASE_URL);
     }
 
     private String resolveSystemPrompt() {
@@ -110,27 +120,27 @@ public class AppConfig {
         if (userValue != null) {
             return userValue;
         }
-        return properties.getProperty("chat.system.prompt", "");
+        return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, "");
     }
 
     public int historyMaxMessages() {
-        return Math.max(2, getInt("chat.history.max.messages", 20));
+        return Math.max(2, getInt(ConfigKeys.CHAT_HISTORY_MAX_MESSAGES, 20));
     }
 
     public String highlightJsPath() {
-        return properties.getProperty("highlight.js.path", "/highlight/highlight.min.js");
+        return properties.getProperty(ConfigKeys.HIGHLIGHT_JS_PATH, "/highlight/highlight.min.js");
     }
 
     public String highlightCssPath() {
-        return properties.getProperty("highlight.css.path", "/highlight/github.min.css");
+        return properties.getProperty(ConfigKeys.HIGHLIGHT_CSS_PATH, "/highlight/github.min.css");
     }
 
     public String chatTemplatePath() {
-        return properties.getProperty("chat.template.path", "/templates/chat.html");
+        return properties.getProperty(ConfigKeys.CHAT_TEMPLATE_PATH, "/templates/chat.html");
     }
 
     public int attachMaxChars() {
-        return getInt("chat.attach.max.chars", 100_000);
+        return getInt(ConfigKeys.CHAT_ATTACH_MAX_CHARS, 100_000);
     }
 
     private int getInt(String key, int defaultValue) {
@@ -139,6 +149,7 @@ public class AppConfig {
         try {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
+            log.warn("Invalid integer for {} = '{}' — using default {}", key, value, defaultValue);
             return defaultValue;
         }
     }
@@ -149,12 +160,13 @@ public class AppConfig {
         try {
             return Double.parseDouble(value.trim());
         } catch (NumberFormatException e) {
+            log.warn("Invalid double for {} = '{}' — using default {}", key, value, defaultValue);
             return defaultValue;
         }
     }
 
     public String defaultTheme() {
-        return properties.getProperty("app.theme", "NordLight");
+        return properties.getProperty(ConfigKeys.APP_THEME, "NordLight");
     }
 
     public String theme() {

@@ -1,5 +1,8 @@
 package omut.aichat.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,6 +14,8 @@ import java.util.Properties;
  * Survives application restarts.
  */
 public class UserConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(UserConfig.class);
 
     private static final String CONFIG_DIR = ".aichat";
     private static final String CONFIG_FILE = "config.properties";
@@ -24,11 +29,16 @@ public class UserConfig {
     }
 
     private void load() {
-        if (!Files.exists(file)) return;
+        if (!Files.exists(file)) {
+            log.debug("User config not found at {} — starting with empty settings", file);
+            return;
+        }
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             properties.load(reader);
+            log.debug("Loaded {} user settings from {}", properties.size(), file);
         } catch (IOException e) {
-            // ignore — start with empty settings
+            log.warn("Failed to read user config {} — starting with empty settings: {}",
+                    file, e.getMessage());
         }
     }
 
@@ -39,45 +49,46 @@ public class UserConfig {
                 properties.store(writer, "AIChat user settings");
             }
         } catch (IOException e) {
-            // ignore — settings won't persist, app keeps working
+            log.warn("Failed to save user config {} — settings will not persist: {}",
+                    file, e.getMessage());
         }
     }
 
     public synchronized String getBaseUrl() {
-        return properties.getProperty("ollama.base.url");
+        return properties.getProperty(ConfigKeys.OLLAMA_BASE_URL);
     }
 
     public synchronized void setBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
-            properties.remove("ollama.base.url");
+            properties.remove(ConfigKeys.OLLAMA_BASE_URL);
         } else {
-            properties.setProperty("ollama.base.url", baseUrl);
+            properties.setProperty(ConfigKeys.OLLAMA_BASE_URL, baseUrl);
         }
         save();
     }
 
     public synchronized String getSystemPrompt() {
-        return properties.getProperty("chat.system.prompt");
+        return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT);
     }
 
     public synchronized void setSystemPrompt(String prompt) {
         if (prompt == null || prompt.isBlank()) {
-            properties.remove("chat.system.prompt");
+            properties.remove(ConfigKeys.CHAT_SYSTEM_PROMPT);
         } else {
-            properties.setProperty("chat.system.prompt", prompt);
+            properties.setProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, prompt);
         }
         save();
     }
 
     public synchronized String getTheme() {
-        return properties.getProperty("app.theme");
+        return properties.getProperty(ConfigKeys.APP_THEME);
     }
 
     public synchronized void setTheme(String theme) {
         if (theme == null || theme.isBlank()) {
-            properties.remove("app.theme");
+            properties.remove(ConfigKeys.APP_THEME);
         } else {
-            properties.setProperty("app.theme", theme);
+            properties.setProperty(ConfigKeys.APP_THEME, theme);
         }
         save();
     }
