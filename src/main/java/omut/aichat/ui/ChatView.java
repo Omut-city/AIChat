@@ -14,8 +14,6 @@ import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatSession;
-import org.commonmark.parser.Parser;
-import org.commonmark.renderer.html.HtmlRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +37,7 @@ public class ChatView implements ChatListener {
     private final ChatSession session;
     private final ChatViewBuilder view;
     private final StringBuilder markdownHistory = new StringBuilder();
-    private final Parser markdownParser = Parser.builder().build();
-    private final HtmlRenderer markdownRenderer = HtmlRenderer.builder().build();
+    private final MarkdownRenderer markdown = new MarkdownRenderer();
     private final Map<String, String> assetCache = new HashMap<>();
 
     private String currentHighlightCss;
@@ -146,7 +143,7 @@ public class ChatView implements ChatListener {
     @Override
     public void onMessage(AIChatMessage message) {
         Platform.runLater(() -> {
-            markdownHistory.append(formatMarkdown(message)).append("\n\n");
+            markdownHistory.append(markdown.formatMessage(message, session.currentModel())).append("\n\n");
             renderMarkdown();
         });
     }
@@ -253,8 +250,8 @@ public class ChatView implements ChatListener {
         lastStreamRenderNanos = now;
 
         Platform.runLater(() -> {
-            String html = markdownRenderer.render(markdownParser.parse(fullText));
-            String escaped = jsStringLiteral(html);
+            String html = markdown.renderToHtml(fullText);
+            String escaped = MarkdownRenderer.jsStringLiteral(html);
             executeScriptSafely("updateStreamingMessage(" + escaped + ");");
             executeScriptSafely("if (isAtBottom()) scrollToBottom();");
         });
@@ -269,20 +266,6 @@ public class ChatView implements ChatListener {
         if (text == null || text.isBlank()) return;
         view.inputField.clear();
         session.send(text);
-    }
-
-    private String formatMarkdown(AIChatMessage message) {
-        return switch (message.role()) {
-            case USER -> "**You:** " + message.text();
-            case ASSISTANT -> String.format(
-                    java.util.Locale.US,
-                    "**AI (%s, %.1fs):**%n%n%s",
-                    session.currentModel(),
-                    message.durationMillis() / 1000.0,
-                    message.text()
-            );
-            case SYSTEM -> ChatExporter.quoteSystem(message.text());
-        };
     }
 
     private void updateControls() {
@@ -359,7 +342,7 @@ public class ChatView implements ChatListener {
     }
 
     private void renderMarkdown() {
-        String html = markdownRenderer.render(markdownParser.parse(markdownHistory.toString()));
+        String html = markdown.renderToHtml(markdownHistory.toString());
         view.chatView.getEngine().loadContent(wrapInHtml(html, currentHighlightCss, currentBodyClass));
     }
 
@@ -406,36 +389,6 @@ public class ChatView implements ChatListener {
         alert.getDialogPane().setContent(content);
 
         alert.showAndWait();
-    }
-
-    /**
-     * Convert an arbitrary string into a JS string literal
-     * (surround with quotes, escape special characters).
-     */
-    private static String jsStringLiteral(String s) {
-        StringBuilder sb = new StringBuilder(s.length() + 16);
-        sb.append('"');
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '\\' -> sb.append("\\\\");
-                case '"'  -> sb.append("\\\"");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                case '\b' -> sb.append("\\b");
-                case '\f' -> sb.append("\\f");
-                default -> {
-                    if (c < 0x20) {
-                        sb.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        sb.append(c);
-                    }
-                }
-            }
-        }
-        sb.append('"');
-        return sb.toString();
     }
 
     /**
