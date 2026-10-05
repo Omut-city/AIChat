@@ -108,7 +108,7 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             llmAvailable = available;
             if (available) {
-                view.statusLabel.setText("Status: Ollama is available");
+                view.statusLabel.setText("Status: Ollama is available  |  Model: " + session.currentModel());
                 view.statusLabel.setTextFill(Color.SEAGREEN);
                 if (view.modelSelector.getItems().isEmpty()) {
                     session.loadModels();
