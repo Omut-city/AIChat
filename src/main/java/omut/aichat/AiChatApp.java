@@ -1,9 +1,5 @@
 package omut.aichat;
 
-import atlantafx.base.theme.NordDark;
-import atlantafx.base.theme.NordLight;
-import atlantafx.base.theme.PrimerDark;
-import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -26,7 +22,7 @@ public class AiChatApp extends Application {
     @Override
     public void start(Stage stage) {
         AppConfig config = new AppConfig();
-        applyTheme(config.theme());
+        Theme.fromId(config.theme()).apply();
         LlmService llmService = new OllamaLlmService(config, config.defaultModel());
         session = new ChatSession(llmService);
 
@@ -51,19 +47,5 @@ public class AiChatApp extends Application {
 
     public static void main(String[] args) {
         launch(args);
-    }
-
-    public static void applyTheme(String themeId) {
-        Theme theme = Theme.fromId(themeId);
-        switch (theme) {
-            case NORD_LIGHT   -> Application.setUserAgentStylesheet(
-                    new NordLight().getUserAgentStylesheet());
-            case NORD_DARK    -> Application.setUserAgentStylesheet(
-                    new NordDark().getUserAgentStylesheet());
-            case PRIMER_LIGHT -> Application.setUserAgentStylesheet(
-                    new PrimerLight().getUserAgentStylesheet());
-            case PRIMER_DARK  -> Application.setUserAgentStylesheet(
-                    new PrimerDark().getUserAgentStylesheet());
-        }
     }
 }

@@ -10,7 +10,6 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
-import omut.aichat.AiChatApp;
 import omut.aichat.chat.*;
 import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
@@ -376,7 +375,7 @@ public class ChatView implements ChatListener {
     private void applyTheme(String themeId) {
         Theme theme = Theme.fromId(themeId);
         session.setTheme(theme.id());
-        AiChatApp.applyTheme(theme.id());
+        theme.apply();
         renderMarkdown();
     }
 }
