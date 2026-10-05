@@ -176,7 +176,7 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             markdownHistory.setLength(0);
             view.chatView.getEngine().loadContent(
-                    assets.wrapInHtml("", Theme.fromId(config.theme()),
+                    assets.wrapInHtml("", currentTheme(),
                             config.chatTemplatePath(), config.highlightJsPath()
                     )
             );
@@ -336,7 +336,7 @@ public class ChatView implements ChatListener {
     private void renderMarkdown() {
         String html = markdown.renderToHtml(markdownHistory.toString());
         view.chatView.getEngine().loadContent(
-                assets.wrapInHtml(html, Theme.fromId(config.theme()),
+                assets.wrapInHtml(html, currentTheme(),
                         config.chatTemplatePath(), config.highlightJsPath()
                 )
         );
@@ -379,5 +379,9 @@ public class ChatView implements ChatListener {
         config.setTheme(theme.id());
         theme.apply();
         renderMarkdown();
+    }
+
+    private Theme currentTheme() {
+        return Theme.fromId(config.theme());
     }
 }
