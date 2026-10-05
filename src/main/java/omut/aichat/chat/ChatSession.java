@@ -10,6 +10,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static omut.aichat.utils.Throwables.rootCause;
+
 public class ChatSession {
 
     private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
@@ -144,10 +146,6 @@ public class ChatSession {
         return llmService.currentModel();
     }
 
-    public String defaultBaseUrl() {
-        return llmService.defaultBaseUrl();
-    }
-
     /**
      * Attaches a file's contents to the conversation as a system message.
      * The model will see it in the next request.
@@ -198,15 +196,6 @@ public class ChatSession {
         }
     }
 
-    private void dispatch(Consumer<ChatListener> action) {
-        for (ChatListener l : listeners) {
-            try { action.accept(l); }
-            catch (Exception e) {
-                log.warn("Listener failed: {}", e.getMessage());
-            }
-        }
-    }
-
     public void cancelCurrentRequest() {
         Object token = requestToken.get();
         if (token == null) return;
@@ -220,37 +209,6 @@ public class ChatSession {
 
         notifyRequestCancelled();
         notifyThinkingFinished();
-    }
-
-    private String friendlyError(Throwable ex) {
-        if (ex == null) return "Unknown error.";
-
-        Throwable cause = rootCause(ex);
-
-        if (cause instanceof java.net.ConnectException
-                || cause instanceof java.net.NoRouteToHostException) {
-            return "Cannot connect to Ollama. Is it running?";
-        }
-        if (cause instanceof java.net.SocketTimeoutException
-                || cause instanceof java.util.concurrent.TimeoutException) {
-            return "Request timed out. The model may be loading, try again.";
-        }
-
-        String msg = cause.getMessage();
-        if (msg == null) return cause.getClass().getSimpleName();
-
-        if (msg.contains("model") && msg.contains("not found")) {
-            return "Model not found. Check that the model is pulled via 'ollama list'.";
-        }
-        return msg;
-    }
-
-    private static Throwable rootCause(Throwable ex) {
-        Throwable current = ex;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        return current;
     }
 
     public void setBaseUrl(String baseUrl) {
@@ -289,40 +247,27 @@ public class ChatSession {
         });
     }
 
-    public String theme() {
-        return llmService.theme();
-    }
+    private String friendlyError(Throwable ex) {
+        if (ex == null) return "Unknown error.";
 
-    public void setTheme(String theme) {
-        llmService.setTheme(theme);
-    }
+        Throwable cause = rootCause(ex);
 
-    public String defaultTheme() {
-        return llmService.defaultTheme();
-    }
+        if (cause instanceof java.net.ConnectException
+                || cause instanceof java.net.NoRouteToHostException) {
+            return "Cannot connect to Ollama. Is it running?";
+        }
+        if (cause instanceof java.net.SocketTimeoutException
+                || cause instanceof java.util.concurrent.TimeoutException) {
+            return "Request timed out. The model may be loading, try again.";
+        }
 
-    public String systemPrompt() {
-        return llmService.systemPrompt();
-    }
+        String msg = cause.getMessage();
+        if (msg == null) return cause.getClass().getSimpleName();
 
-    public String defaultSystemPrompt() {
-        return llmService.defaultSystemPrompt();
-    }
-
-    public String baseUrl() {
-        return llmService.baseUrl();
-    }
-
-    public String highlightJsPath() {
-        return llmService.highlightJsPath();
-    }
-
-    public String highlightCssPath() {
-        return llmService.highlightCssPath();
-    }
-
-    public String chatTemplatePath() {
-        return llmService.chatTemplatePath();
+        if (msg.contains("model") && msg.contains("not found")) {
+            return "Model not found. Check that the model is pulled via 'ollama list'.";
+        }
+        return msg;
     }
 
     private List<AIChatMessage> buildRequestHistory() {
@@ -353,6 +298,15 @@ public class ChatSession {
             executor.submit(task);
         } catch (RejectedExecutionException e) {
             log.warn("Task rejected — executor is shutting down");
+        }
+    }
+
+    private void dispatch(Consumer<ChatListener> action) {
+        for (ChatListener l : listeners) {
+            try { action.accept(l); }
+            catch (Exception e) {
+                log.warn("Listener failed: {}", e.getMessage());
+            }
         }
     }
 
@@ -403,4 +357,5 @@ public class ChatSession {
     private void notifyToken(String chunk, String fullText) {
         dispatch(l -> l.onToken(chunk, fullText));
     }
+
 }

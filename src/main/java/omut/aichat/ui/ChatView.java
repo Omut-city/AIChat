@@ -11,6 +11,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
 import omut.aichat.chat.*;
+import omut.aichat.config.AppConfig;
 import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,21 +33,26 @@ public class ChatView implements ChatListener {
     private PauseTransition noticeTimer;
 
     private final AssetLoader assets = new AssetLoader();
-    private final ChatSession session;
-    private final ChatViewBuilder view;
     private final StringBuilder markdownHistory = new StringBuilder();
     private final MarkdownRenderer markdown = new MarkdownRenderer();
+    private final ChatViewBuilder view = new ChatViewBuilder();
+    private final ChatSession session;
+    private final AppConfig config;
     private final HostServices hostServices;
 
     private volatile long lastStreamRenderNanos = 0;
     private boolean busy = false;
     private boolean llmAvailable = false;
 
-    public ChatView(ChatSession session, HostServices hostServices) {
+    public ChatView(
+            ChatSession session,
+            AppConfig config,
+            HostServices hostServices
+    ) {
         this.session = session;
+        this.config = config;
         this.hostServices = hostServices;
         this.session.addListener(this);
-        this.view = new ChatViewBuilder();
     }
 
     public Parent build() {
@@ -81,7 +87,8 @@ public class ChatView implements ChatListener {
             applyTheme(themeId);
         });
 
-        Theme current = Theme.fromId(session.theme());
+        Theme current = Theme.fromId(config.theme());
+
         switch (current) {
             case NORD_LIGHT   -> view.nordLightItem.setSelected(true);
             case NORD_DARK    -> view.nordDarkItem.setSelected(true);
@@ -167,8 +174,8 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             markdownHistory.setLength(0);
             view.chatView.getEngine().loadContent(
-                    assets.wrapInHtml("", Theme.fromId(session.theme()),
-                            session.chatTemplatePath(), session.highlightJsPath()
+                    assets.wrapInHtml("", Theme.fromId(config.theme()),
+                            config.chatTemplatePath(), config.highlightJsPath()
                     )
             );
             view.noticeLabel.setText("");
@@ -270,21 +277,21 @@ public class ChatView implements ChatListener {
 
     private void onEditSystemPrompt() {
         SystemPromptDialog dialog = new SystemPromptDialog(
-                session.systemPrompt(),
-                session.defaultSystemPrompt()
+                config.systemPrompt(),
+                config.defaultSystemPrompt()
         );
         dialog.initOwner(view.chatView.getScene().getWindow());
         String newPrompt = dialog.showAndWait().orElse(null);
-        if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(session.systemPrompt())) {
+        if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(config.systemPrompt())) {
             session.setSystemPrompt(newPrompt);
         }
     }
 
     private void onSettings() {
-        SettingsDialog dialog = new SettingsDialog(session.baseUrl(), session.defaultBaseUrl());
+        SettingsDialog dialog = new SettingsDialog(config.getBaseUrl(), config.defaultBaseUrl());
         dialog.initOwner(view.chatView.getScene().getWindow());
         String newUrl = dialog.showAndWait().orElse(null);
-        if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(session.baseUrl())) {
+        if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(config.getBaseUrl())) {
             session.setBaseUrl(newUrl);
         }
     }
@@ -334,8 +341,8 @@ public class ChatView implements ChatListener {
     private void renderMarkdown() {
         String html = markdown.renderToHtml(markdownHistory.toString());
         view.chatView.getEngine().loadContent(
-                assets.wrapInHtml(html, Theme.fromId(session.theme()),
-                        session.chatTemplatePath(), session.highlightJsPath()
+                assets.wrapInHtml(html, Theme.fromId(config.theme()),
+                        config.chatTemplatePath(), config.highlightJsPath()
                 )
         );
     }
@@ -374,7 +381,7 @@ public class ChatView implements ChatListener {
 
     private void applyTheme(String themeId) {
         Theme theme = Theme.fromId(themeId);
-        session.setTheme(theme.id());
+        config.setTheme(theme.id());
         theme.apply();
         renderMarkdown();
     }
