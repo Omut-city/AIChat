@@ -23,7 +23,7 @@ public class AiChatApp extends Application {
     public void start(Stage stage) {
         AppConfig config = new AppConfig();
         Theme.fromId(config.theme()).apply();
-        LlmService llmService = new OllamaLlmService(config, config.defaultModel());
+        LlmService llmService = new OllamaLlmService(config, config.selectedModel());
         session = new ChatSession(llmService, config);
 
         ChatView view = new ChatView(session, config, getHostServices());
@@ -36,7 +36,7 @@ public class AiChatApp extends Application {
 
         view.focusInput();
         log.info("AIChat started. Model: {}, base URL: {}",
-                config.defaultModel(), config.getBaseUrl());
+                config.selectedModel(), config.getBaseUrl());
     }
 
     @Override

@@ -142,6 +142,7 @@ public class ChatSession {
         submit(() -> {
             try {
                 llmService.switchModel(modelName);
+                config.setSelectedModel(modelName);
                 notifyModelChanged(modelName);
             } catch (Exception e) {
                 notifyMessage(AIChatMessage.system("Failed to switch model: " + e.getMessage()));

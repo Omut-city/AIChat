@@ -107,6 +107,22 @@ public class AppConfig {
         return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, "");
     }
 
+    public String selectedModel() {
+        String userValue = userConfig.getSelectedModel();
+        if (userValue != null && !userValue.isBlank()) {
+            return userValue;
+        }
+        return defaultModel();
+    }
+
+    public void setSelectedModel(String model) {
+        if (model == null || model.isBlank()) {
+            userConfig.setSelectedModel(null);
+        } else {
+            userConfig.setSelectedModel(model);
+        }
+    }
+
     private String resolveBaseUrl() {
         String userValue = userConfig.getBaseUrl();
         if (userValue != null && !userValue.isBlank()) {

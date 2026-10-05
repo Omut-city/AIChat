@@ -15,6 +15,7 @@ public final class ConfigKeys {
     // Connection
     public static final String OLLAMA_BASE_URL = "ollama.base.url";
     public static final String OLLAMA_DEFAULT_MODEL = "ollama.default.model";
+    public static final String OLLAMA_SELECTED_MODEL = "ollama.selected.model";
 
     // LLM request
     public static final String OLLAMA_REQUEST_TIMEOUT_MINUTES = "ollama.request.timeout.minutes";

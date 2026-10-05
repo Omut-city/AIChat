@@ -84,6 +84,19 @@ public class UserConfig {
         save();
     }
 
+    public synchronized String getSelectedModel() {
+        return properties.getProperty(ConfigKeys.OLLAMA_SELECTED_MODEL);
+    }
+
+    public synchronized void setSelectedModel(String model) {
+        if (model == null || model.isBlank()) {
+            properties.remove(ConfigKeys.OLLAMA_SELECTED_MODEL);
+        } else {
+            properties.setProperty(ConfigKeys.OLLAMA_SELECTED_MODEL, model);
+        }
+        save();
+    }
+
     public synchronized String getTheme() {
         return properties.getProperty(ConfigKeys.APP_THEME);
     }
