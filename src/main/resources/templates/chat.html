@@ -86,29 +86,6 @@
     }
 
     /**
-     * Finalize the streaming block: drop the id so the next
-     * streaming session creates a fresh placeholder.
-     */
-    function finalizeStreaming() {
-        var el = document.getElementById('streaming-message');
-        if (el) {
-            el.removeAttribute('id');
-            el.classList.remove('streaming');
-        }
-    }
-
-    /**
-     * Remove the streaming block entirely.
-     * Used on cancellation or error.
-     */
-    function removeStreamingMessage() {
-        var el = document.getElementById('streaming-message');
-        if (el) {
-            el.remove();
-        }
-    }
-
-    /**
      * Returns true if the user is scrolled to (or near) the bottom.
      */
     function isAtBottom() {
