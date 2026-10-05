@@ -131,10 +131,6 @@ public class AppConfig {
         return properties.getProperty(ConfigKeys.HIGHLIGHT_JS_PATH, "/highlight/highlight.min.js");
     }
 
-    public String highlightCssPath() {
-        return properties.getProperty(ConfigKeys.HIGHLIGHT_CSS_PATH, "/highlight/github.min.css");
-    }
-
     public String chatTemplatePath() {
         return properties.getProperty(ConfigKeys.CHAT_TEMPLATE_PATH, "/templates/chat.html");
     }

@@ -34,5 +34,4 @@ public final class ConfigKeys {
 
     // Syntax highlighting
     public static final String HIGHLIGHT_JS_PATH = "highlight.js.path";
-    public static final String HIGHLIGHT_CSS_PATH = "highlight.css.path";
 }
