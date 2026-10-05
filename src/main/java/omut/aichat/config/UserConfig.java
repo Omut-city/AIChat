@@ -96,9 +96,4 @@ public class UserConfig {
         }
         save();
     }
-
-    public synchronized void clear() {
-        properties.clear();
-        save();
-    }
 }
