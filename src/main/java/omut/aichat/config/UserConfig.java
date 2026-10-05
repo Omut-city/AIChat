@@ -7,6 +7,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 
 /**
@@ -42,12 +43,15 @@ public class UserConfig {
         }
     }
 
-    private void save() {
+    private synchronized void save() {
+        Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
             Files.createDirectories(file.getParent());
-            try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+            try (Writer writer = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
                 properties.store(writer, "AIChat user settings");
             }
+            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+            log.debug("Saved {} user settings to {}", properties.size(), file);
         } catch (IOException e) {
             log.warn("Failed to save user config {} — settings will not persist: {}",
                     file, e.getMessage());
