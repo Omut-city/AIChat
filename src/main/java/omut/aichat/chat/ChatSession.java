@@ -176,7 +176,6 @@ public class ChatSession {
             AIChatMessage attachment = AIChatMessage.system(text);
             history.add(attachment);
             notifyMessage(AIChatMessage.system("Attached: " + fileName));
-            notifyFileAttached(fileName);
         });
     }
 
@@ -355,10 +354,6 @@ public class ChatSession {
 
     private void notifyRequestCancelled() {
         dispatch(ChatListener::onRequestCancelled);
-    }
-
-    private void notifyFileAttached(String fileName) {
-        dispatch(l -> l.onFileAttached(fileName));
     }
 
     private void notifyToken(String chunk, String fullText) {

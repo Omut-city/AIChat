@@ -13,6 +13,5 @@ public interface ChatListener {
     void onResponseTime(long millis);
     void onRequestCancelled();
     void onTokensPerSecond(double tps);
-    void onFileAttached(String fileName);
     void onToken(String chunk, String fullText);
 }

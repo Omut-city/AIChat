@@ -213,13 +213,6 @@ public class ChatView implements ChatListener {
         });
     }
 
-    @Override
-    public void onFileAttached(String fileName) {
-        Platform.runLater(() -> {
-            showNotice("Attached: " + fileName, Color.SEAGREEN);
-        });
-    }
-
     private void onAttach() {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Attach file");
