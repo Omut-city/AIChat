@@ -36,7 +36,6 @@ public class ChatView implements ChatListener {
     private PauseTransition noticeTimer;
 
     private final AssetLoader assets = new AssetLoader();
-    private final StringBuilder markdownHistory = new StringBuilder();
     private final MarkdownRenderer markdown = new MarkdownRenderer();
     private final ChatViewBuilder view = new ChatViewBuilder();
     private final ChatSession session;
@@ -143,10 +142,7 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onMessage(AIChatMessage message) {
-        Platform.runLater(() -> {
-            markdownHistory.append(markdown.formatMessage(message)).append("\n\n");
-            renderMarkdown();
-        });
+        Platform.runLater(this::renderMarkdown);
     }
 
     @Override
@@ -174,7 +170,6 @@ public class ChatView implements ChatListener {
     @Override
     public void onCleared() {
         Platform.runLater(() -> {
-            markdownHistory.setLength(0);
             view.chatView.getEngine().loadContent(
                     assets.wrapInHtml("", currentTheme(),
                             config.chatTemplatePath(), config.highlightJsPath()
@@ -195,8 +190,6 @@ public class ChatView implements ChatListener {
             busy = false;
             view.typingLabel.setText("");
             view.stopButton.setDisable(true);
-            markdownHistory.append("> System: Generation cancelled.\n\n");
-            renderMarkdown();
             updateControls();
             view.inputField.requestFocus();
         });
@@ -334,7 +327,11 @@ public class ChatView implements ChatListener {
     }
 
     private void renderMarkdown() {
-        String html = markdown.renderToHtml(markdownHistory.toString());
+        StringBuilder sb = new StringBuilder();
+        for (AIChatMessage message : session.getHistory()) {
+            sb.append(markdown.formatMessage(message)).append("\n\n");
+        }
+        String html = markdown.renderToHtml(sb.toString());
         view.chatView.getEngine().loadContent(
                 assets.wrapInHtml(html, currentTheme(),
                         config.chatTemplatePath(), config.highlightJsPath()

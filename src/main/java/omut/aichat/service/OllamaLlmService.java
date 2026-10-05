@@ -161,11 +161,11 @@ public class OllamaLlmService implements LlmService {
             }
         });
 
+        int timeoutMinutes = config.requestTimeoutMinutes();
         try {
-            if (!latch.await(config.requestTimeoutMinutes(), TimeUnit.MINUTES)) {
+            if (!latch.await(timeoutMinutes, TimeUnit.MINUTES)) {
                 callback.onError(new TimeoutException(
-                        "Streaming did not complete within "
-                                + config.requestTimeoutMinutes() + " minutes"));
+                        "Streaming did not complete within " + timeoutMinutes + " minutes"));
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

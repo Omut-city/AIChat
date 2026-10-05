@@ -213,6 +213,9 @@ public class ChatSession {
             request.cancel(true);
         }
 
+        AIChatMessage cancelNote = AIChatMessage.system("Generation cancelled.");
+        history.add(cancelNote);
+        notifyMessage(cancelNote);
         notifyRequestCancelled();
         notifyThinkingFinished();
     }
