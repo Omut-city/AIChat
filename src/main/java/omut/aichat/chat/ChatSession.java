@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 public class ChatSession {
 
@@ -197,20 +198,13 @@ public class ChatSession {
         }
     }
 
-    private void notifyMessage(AIChatMessage m) {
-        listeners.forEach(l -> l.onMessage(m));
-    }
-
-    private void notifyThinkingStarted() {
-        listeners.forEach(ChatListener::onThinkingStarted);
-    }
-
-    private void notifyThinkingFinished() {
-        listeners.forEach(ChatListener::onThinkingFinished);
-    }
-
-    private void notifyStatus(boolean available) {
-        listeners.forEach(l -> l.onStatusChanged(available));
+    private void dispatch(Consumer<ChatListener> action) {
+        for (ChatListener l : listeners) {
+            try { action.accept(l); }
+            catch (Exception e) {
+                log.warn("Listener failed: {}", e.getMessage());
+            }
+        }
     }
 
     public void cancelCurrentRequest() {
@@ -331,34 +325,6 @@ public class ChatSession {
         return llmService.chatTemplatePath();
     }
 
-    private void notifyFileAttached(String fileName) {
-        listeners.forEach(l -> l.onFileAttached(fileName));
-    }
-
-    private void notifyCleared() {
-        listeners.forEach(ChatListener::onCleared);
-    }
-
-    private void notifyModelsLoaded(List<String> models) {
-        listeners.forEach(l -> l.onModelsLoaded(models));
-    }
-
-    private void notifyModelChanged(String modelName) {
-        listeners.forEach(l -> l.onModelChanged(modelName));
-    }
-
-    private void notifyResponseTime(long millis) {
-        listeners.forEach(l -> l.onResponseTime(millis));
-    }
-
-    private void notifyTokensPerSecond(double tps) {
-        listeners.forEach(l -> l.onTokensPerSecond(tps));
-    }
-
-    private void notifyRequestCancelled() {
-        listeners.forEach(ChatListener::onRequestCancelled);
-    }
-
     private List<AIChatMessage> buildRequestHistory() {
         int max = llmService.historyMaxMessages();
         int total = history.size();
@@ -390,7 +356,51 @@ public class ChatSession {
         }
     }
 
+    private void notifyMessage(AIChatMessage m) {
+        dispatch(l -> l.onMessage(m));
+    }
+
+    private void notifyThinkingStarted() {
+        dispatch(ChatListener::onThinkingStarted);
+    }
+
+    private void notifyThinkingFinished() {
+        dispatch(ChatListener::onThinkingFinished);
+    }
+
+    private void notifyStatus(boolean available) {
+        dispatch(l -> l.onStatusChanged(available));
+    }
+
+    private void notifyCleared() {
+        dispatch(ChatListener::onCleared);
+    }
+
+    private void notifyModelsLoaded(List<String> models) {
+        dispatch(l -> l.onModelsLoaded(models));
+    }
+
+    private void notifyModelChanged(String modelName) {
+        dispatch(l -> l.onModelChanged(modelName));
+    }
+
+    private void notifyResponseTime(long millis) {
+        dispatch(l -> l.onResponseTime(millis));
+    }
+
+    private void notifyTokensPerSecond(double tps) {
+        dispatch(l -> l.onTokensPerSecond(tps));
+    }
+
+    private void notifyRequestCancelled() {
+        dispatch(ChatListener::onRequestCancelled);
+    }
+
+    private void notifyFileAttached(String fileName) {
+        dispatch(l -> l.onFileAttached(fileName));
+    }
+
     private void notifyToken(String chunk, String fullText) {
-        listeners.forEach(l -> l.onToken(chunk, fullText));
+        dispatch(l -> l.onToken(chunk, fullText));
     }
 }
