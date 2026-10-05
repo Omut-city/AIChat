@@ -30,7 +30,7 @@ public class AiChatApp extends Application {
         LlmService llmService = new OllamaLlmService(config, config.defaultModel());
         session = new ChatSession(llmService);
 
-        ChatView view = new ChatView(session);
+        ChatView view = new ChatView(session, getHostServices());
         Parent root = view.build();
 
         Scene scene = new Scene(root, config.windowWidth(), config.windowHeight());

@@ -1,6 +1,7 @@
 package omut.aichat.ui;
 
 import javafx.animation.PauseTransition;
+import javafx.application.HostServices;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Parent;
@@ -27,6 +28,7 @@ public class ChatView implements ChatListener {
 
     private static final Logger log = LoggerFactory.getLogger(ChatView.class);
     private static final long STREAM_RENDER_INTERVAL_NANOS = 80_000_000L;
+    private static final String PROJECT_URL = "https://github.com/Omut-city/AIChat";
 
     private PauseTransition noticeTimer;
 
@@ -35,13 +37,15 @@ public class ChatView implements ChatListener {
     private final ChatViewBuilder view;
     private final StringBuilder markdownHistory = new StringBuilder();
     private final MarkdownRenderer markdown = new MarkdownRenderer();
+    private final HostServices hostServices;
 
     private long lastStreamRenderNanos = 0;
     private boolean busy = false;
     private boolean llmAvailable = false;
 
-    public ChatView(ChatSession session) {
+    public ChatView(ChatSession session, HostServices hostServices) {
         this.session = session;
+        this.hostServices = hostServices;
         this.session.addListener(this);
         this.view = new ChatViewBuilder();
     }
@@ -343,16 +347,8 @@ public class ChatView implements ChatListener {
         alert.setHeaderText("AIChat — Local Offline LLM");
         alert.initOwner(view.chatView.getScene().getWindow());
 
-        Hyperlink link = new Hyperlink("https://github.com/Omut-city/AIChat");
-        link.setOnAction(e -> {
-            try {
-                java.awt.Desktop.getDesktop().browse(
-                        java.net.URI.create("https://github.com/Omut-city/AIChat"));
-            } catch (Exception ex) {
-                log.warn("Cannot open browser for {}: {}",
-                        "https://github.com/Omut-city/AIChat", ex.getMessage());
-            }
-        });
+        Hyperlink link = new Hyperlink(PROJECT_URL);
+        link.setOnAction(e -> hostServices.showDocument(PROJECT_URL));
 
         VBox content = new VBox(8,
                 new Label("A simple offline chat with local LLMs."),
