@@ -38,7 +38,7 @@ public class ChatView implements ChatListener {
     private final MarkdownRenderer markdown = new MarkdownRenderer();
     private final HostServices hostServices;
 
-    private long lastStreamRenderNanos = 0;
+    private volatile long lastStreamRenderNanos = 0;
     private boolean busy = false;
     private boolean llmAvailable = false;
 
