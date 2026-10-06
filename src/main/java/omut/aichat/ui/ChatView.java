@@ -64,33 +64,33 @@ public class ChatView implements ChatListener {
     public Parent build() {
         Parent root = view.build();
 
-        view.exitMenuItem.setOnAction(e -> Platform.exit());
-        view.aboutMenuItem.setOnAction(e -> onAbout());
-        view.attachButton.setOnAction(e -> onAttach());
-        view.sendButton.setOnAction(e -> onSend());
-        view.inputField.setOnAction(e -> onSend());
-        view.clearButton.setOnAction(e -> session.clear());
-        view.checkButton.setOnAction(e -> session.checkAvailability());
-        view.promptButton.setOnAction(e -> onEditSystemPrompt());
-        view.saveButton.setOnAction(e -> onSave());
-        view.copyLastButton.setOnAction(e -> onCopyLast());
-        view.stopButton.setOnAction(e -> session.cancelCurrentRequest());
-        view.regenerateButton.setOnAction(e -> session.regenerateLast());
-        view.settingsButton.setOnAction(e -> onSettings());
-        view.refreshModelsMenuItem.setOnAction(e -> session.loadModels());
-        view.modelSelector.setOnAction(e -> {
+        view.exitMenuItem.setOnAction(_ -> Platform.exit());
+        view.aboutMenuItem.setOnAction(_ -> onAbout());
+        view.attachButton.setOnAction(_ -> onAttach());
+        view.sendButton.setOnAction(_ -> onSend());
+        view.inputField.setOnAction(_ -> onSend());
+        view.clearButton.setOnAction(_ -> session.clear());
+        view.checkButton.setOnAction(_ -> session.checkAvailability());
+        view.promptButton.setOnAction(_ -> onEditSystemPrompt());
+        view.saveButton.setOnAction(_ -> onSave());
+        view.copyLastButton.setOnAction(_ -> onCopyLast());
+        view.stopButton.setOnAction(_ -> session.cancelCurrentRequest());
+        view.regenerateButton.setOnAction(_ -> session.regenerateLast());
+        view.settingsButton.setOnAction(_ -> onSettings());
+        view.refreshModelsMenuItem.setOnAction(_ -> session.loadModels());
+        view.modelSelector.setOnAction(_ -> {
             String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
                 session.switchModel(selected);
             }
         });
         view.chatView.getEngine().getLoadWorker().stateProperty().addListener(
-                (obs, oldState, newState) -> {
+                (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
                         executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
                     }
                 });
-        view.themeGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+        view.themeGroup.selectedToggleProperty().addListener((_, _, newToggle) -> {
             if (newToggle == null) return;
             String themeId = (String) newToggle.getUserData();
             applyTheme(themeId);
@@ -368,7 +368,7 @@ public class ChatView implements ChatListener {
                 noticeTimer.stop();
             }
             noticeTimer = new PauseTransition(Duration.seconds(3));
-            noticeTimer.setOnFinished(e -> view.noticeLabel.setText(""));
+            noticeTimer.setOnFinished(_ -> view.noticeLabel.setText(""));
             noticeTimer.play();
         });
     }
@@ -393,7 +393,7 @@ public class ChatView implements ChatListener {
         alert.initOwner(view.chatView.getScene().getWindow());
 
         Hyperlink link = new Hyperlink(PROJECT_URL);
-        link.setOnAction(e -> hostServices.showDocument(PROJECT_URL));
+        link.setOnAction(_ -> hostServices.showDocument(PROJECT_URL));
 
         VBox content = new VBox(8,
                 new Label("A simple offline chat with local LLMs."),
