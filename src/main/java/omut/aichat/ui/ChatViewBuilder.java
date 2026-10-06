@@ -23,6 +23,7 @@ public class ChatViewBuilder {
     public final Button attachButton = new Button("Attach");
     public final Button sendButton = new Button("Send");
     public final Button stopButton = new Button("Stop");
+    public final Button regenerateButton = new Button("Regenerate");
     public final Button clearButton = new Button("Clear");
     public final Button checkButton = new Button("Check");
     public final Button settingsButton = new Button("Settings");
@@ -101,8 +102,17 @@ public class ChatViewBuilder {
         HBox.setHgrow(inputField, Priority.ALWAYS);
         attachButton.setDisable(true);
         stopButton.setDisable(true);
+        regenerateButton.setDisable(true);
 
-        HBox inputBox = new HBox(8, attachButton, inputField, sendButton, stopButton, clearButton);
+        HBox inputBox = new HBox(
+                8,
+                attachButton,
+                inputField,
+                sendButton,
+                stopButton,
+                regenerateButton,
+                clearButton
+        );
         inputBox.setAlignment(Pos.CENTER_LEFT);
         inputBox.setPadding(new Insets(10));
 

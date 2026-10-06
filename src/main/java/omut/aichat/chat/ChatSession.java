@@ -75,6 +75,10 @@ public class ChatSession {
         notifyMessage(userMessage);
         notifyThinkingStarted();
 
+        submitStreamingRequest(token);
+    }
+
+    private void submitStreamingRequest(Object token) {
         try {
             Future<?> future = executor.submit(() -> {
                 long start = System.nanoTime();
@@ -125,6 +129,38 @@ public class ChatSession {
             requestToken.set(null);
             notifyThinkingFinished();
         }
+    }
+
+    /**
+     * Removes the assistant's reply to the last user message and re-sends
+     * the same prompt. Used by the "Regenerate" button.
+     * <p>
+     * If there is no user message to regenerate, emits a system notice.
+     */
+    public void regenerateLast() {
+        if (executor.isShutdown()) return;
+        if (requestToken.get() != null) return; // already in flight
+
+        int lastUserIndex = -1;
+        for (int i = history.size() - 1; i >= 0; i--) {
+            if (history.get(i).role() == AIChatMessage.Role.USER) {
+                lastUserIndex = i;
+                break;
+            }
+        }
+
+        if (lastUserIndex < 0) {
+            notifyMessage(AIChatMessage.system("Nothing to regenerate."));
+            return;
+        }
+
+        history.subList(lastUserIndex + 1, history.size()).clear();
+        notifyHistoryChanged();
+        notifyThinkingStarted();
+
+        Object token = new Object();
+        requestToken.set(token);
+        submitStreamingRequest(token);
     }
 
     public void loadModels() {
@@ -322,6 +358,10 @@ public class ChatSession {
 
     private void notifyMessage(AIChatMessage m) {
         dispatch(l -> l.onMessage(m));
+    }
+
+    private void notifyHistoryChanged() {
+        dispatch(ChatListener::onHistoryChanged);
     }
 
     private void notifyThinkingStarted() {

@@ -75,6 +75,7 @@ public class ChatView implements ChatListener {
         view.saveButton.setOnAction(e -> onSave());
         view.copyLastButton.setOnAction(e -> onCopyLast());
         view.stopButton.setOnAction(e -> session.cancelCurrentRequest());
+        view.regenerateButton.setOnAction(e -> session.regenerateLast());
         view.settingsButton.setOnAction(e -> onSettings());
         view.refreshModelsMenuItem.setOnAction(e -> session.loadModels());
         view.modelSelector.setOnAction(e -> {
@@ -149,6 +150,11 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onMessage(AIChatMessage message) {
+        Platform.runLater(this::renderMarkdown);
+    }
+
+    @Override
+    public void onHistoryChanged() {
         Platform.runLater(this::renderMarkdown);
     }
 
@@ -262,12 +268,22 @@ public class ChatView implements ChatListener {
 
     private void updateControls() {
         boolean locked = busy || !llmAvailable;
+        boolean hasAssistant = hasAssistantMessage();
         view.inputField.setDisable(locked);
         view.attachButton.setDisable(locked);
         view.sendButton.setDisable(locked);
         view.clearButton.setDisable(busy);
         view.saveButton.setDisable(busy);
+        view.copyLastButton.setDisable(!hasAssistant);
+        view.regenerateButton.setDisable(locked || !hasAssistant);
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
+    }
+
+    private boolean hasAssistantMessage() {
+        for (AIChatMessage m : session.getHistory()) {
+            if (m.role() == AIChatMessage.Role.ASSISTANT) return true;
+        }
+        return false;
     }
 
     private void onEditSystemPrompt() {
