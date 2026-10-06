@@ -6,6 +6,8 @@ import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
@@ -71,6 +73,7 @@ public class ChatView implements ChatListener {
         view.checkButton.setOnAction(e -> session.checkAvailability());
         view.promptButton.setOnAction(e -> onEditSystemPrompt());
         view.saveButton.setOnAction(e -> onSave());
+        view.copyLastButton.setOnAction(e -> onCopyLast());
         view.stopButton.setOnAction(e -> session.cancelCurrentRequest());
         view.settingsButton.setOnAction(e -> onSettings());
         view.refreshModelsMenuItem.setOnAction(e -> session.loadModels());
@@ -309,6 +312,30 @@ public class ChatView implements ChatListener {
         } catch (IOException e) {
             showNotice("Save failed: " + e.getMessage(), Color.CRIMSON);
         }
+    }
+
+    private void onCopyLast() {
+        AIChatMessage last = lastAssistantMessage();
+        if (last == null) {
+            showNotice("Nothing to copy", Color.DARKSLATEGRAY);
+            return;
+        }
+        String plain = MarkdownRenderer.stripMarkdown(last.text());
+        ClipboardContent content = new ClipboardContent();
+        content.putString(plain);
+        Clipboard.getSystemClipboard().setContent(content);
+        showNotice("Copied last response", Color.SEAGREEN);
+    }
+
+    private AIChatMessage lastAssistantMessage() {
+        List<AIChatMessage> history = session.getHistory();
+        for (int i = history.size() - 1; i >= 0; i--) {
+            AIChatMessage m = history.get(i);
+            if (m.role() == AIChatMessage.Role.ASSISTANT) {
+                return m;
+            }
+        }
+        return null;
     }
 
     private String defaultFileName() {

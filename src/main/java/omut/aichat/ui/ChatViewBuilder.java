@@ -28,6 +28,7 @@ public class ChatViewBuilder {
     public final Button settingsButton = new Button("Settings");
     public final Button promptButton = new Button("Prompt");
     public final Button saveButton = new Button("Save");
+    public final Button copyLastButton = new Button("Copy");
     public final ComboBox<String> modelSelector = new ComboBox<>();
     public final Label statusLabel = new Label("Status: unknown");
     public final Label typingLabel = new Label("");
@@ -86,6 +87,7 @@ public class ChatViewBuilder {
                 new Separator(),
                 statusLabel,
                 toolbarSpacer,
+                copyLastButton,
                 saveButton,
                 checkButton,
                 promptButton,
