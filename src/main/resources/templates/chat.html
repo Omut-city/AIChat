@@ -37,9 +37,54 @@
             color: #999;
         }
 
-        pre { padding: 8px; border-radius: 4px; overflow-x: auto; }
+        pre { padding: 8px; border-radius: 4px; overflow-x: auto; position: relative; }
         code { font-family: 'Consolas', monospace; font-size: 13px; }
         blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 10px; color: #555; }
+
+        .copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-family: 'Segoe UI', sans-serif;
+            color: #57606a;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        pre:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn:hover {
+            background: #f6f8fa;
+        }
+
+        .copy-btn.copied {
+            color: #1a7f37;
+            border-color: #1a7f37;
+        }
+
+        body.theme-dark .copy-btn {
+            color: #c9d1d9;
+            background: rgba(30, 30, 30, 0.9);
+            border-color: #444;
+        }
+
+        body.theme-dark .copy-btn:hover {
+            background: #2d333b;
+        }
+
+        body.theme-dark .copy-btn.copied {
+            color: #7ee787;
+            border-color: #7ee787;
+        }
+
     </style>
 </head>
 <body>
@@ -49,6 +94,7 @@
 
     hljs.registerAliases(['arduino', 'ino'], { languageName: 'cpp' });
     hljs.highlightAll();
+    decorateAllCodeBlocks();
 
     /**
      * Create (or reset) the streaming placeholder block.
@@ -81,6 +127,74 @@
         el.querySelectorAll('pre code').forEach(function (block) {
             hljs.highlightElement(block);
         });
+        decorateAllCodeBlocks(el);
+    }
+
+    /**
+     * Copies text to the clipboard. Prefers the async Clipboard API when
+     * available (secure contexts), falls back to execCommand('copy') for
+     * plain JavaFX WebView where navigator.clipboard is undefined.
+     */
+    function copyTextToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text);
+            return true;
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+        document.body.removeChild(ta);
+        return ok;
+    }
+
+    /**
+     * Adds a "Copy" button to a single <pre> block. Idempotent: marks
+     * the block so a second call is a no-op.
+     */
+    function decorateCodeBlock(pre) {
+        if (pre.dataset.copyDecorated === 'yes') return;
+        pre.dataset.copyDecorated = 'yes';
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.setAttribute('aria-label', 'Copy code');
+
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var code = pre.querySelector('code');
+            var text = code ? code.textContent : pre.textContent;
+            if (copyTextToClipboard(text)) {
+                btn.textContent = 'Copied';
+                btn.classList.add('copied');
+                setTimeout(function () {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 1500);
+            }
+        });
+
+        pre.appendChild(btn);
+    }
+
+    /**
+     * Adds the copy button to every <pre> in the given root (or document).
+     * Safe to call repeatedly — decorateCodeBlock is idempotent per block.
+     */
+    function decorateAllCodeBlocks(root) {
+        (root || document).querySelectorAll('pre').forEach(decorateCodeBlock);
     }
 
     /**
