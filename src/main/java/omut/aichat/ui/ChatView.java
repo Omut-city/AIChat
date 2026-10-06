@@ -6,6 +6,8 @@ import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
@@ -101,6 +103,7 @@ public class ChatView implements ChatListener {
         renderMarkdown();
 
         Platform.runLater(session::checkAvailability);
+        installAccelerators(root);
         return root;
     }
 
@@ -370,6 +373,21 @@ public class ChatView implements ChatListener {
         } catch (Exception e) {
             log.warn("executeScript failed: {} — {}", script, e.getMessage());
         }
+    }
+
+    private void installAccelerators(Parent root) {
+        root.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.isControlDown() && event.getCode() == KeyCode.L) {
+                session.clear();
+                event.consume();
+            } else if (event.isControlDown() && event.getCode() == KeyCode.K) {
+                view.modelSelector.requestFocus();
+                event.consume();
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                view.inputField.requestFocus();
+                event.consume();
+            }
+        });
     }
 
     private void applyTheme(String themeId) {
