@@ -39,6 +39,7 @@ public class ChatViewBuilder {
     public final MenuBar menuBar = new MenuBar();
     public final MenuItem exitMenuItem = new MenuItem("Exit");
     public final MenuItem aboutMenuItem = new MenuItem("About AIChat");
+    public final MenuItem refreshModelsMenuItem = new MenuItem("Refresh models");
 
     public final ToggleGroup themeGroup = new ToggleGroup();
     public final RadioMenuItem nordLightItem = new RadioMenuItem("Nord Light");
@@ -66,7 +67,9 @@ public class ChatViewBuilder {
         viewMenu.getItems().addAll(
                 nordLightItem, nordDarkItem,
                 new SeparatorMenuItem(),
-                primerLightItem, primerDarkItem
+                primerLightItem, primerDarkItem,
+                new SeparatorMenuItem(),
+                refreshModelsMenuItem
         );
 
         menuBar.getMenus().addAll(fileMenu, viewMenu, helpMenu);

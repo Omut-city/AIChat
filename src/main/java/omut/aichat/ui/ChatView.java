@@ -71,6 +71,7 @@ public class ChatView implements ChatListener {
         view.saveButton.setOnAction(e -> onSave());
         view.stopButton.setOnAction(e -> session.cancelCurrentRequest());
         view.settingsButton.setOnAction(e -> onSettings());
+        view.refreshModelsMenuItem.setOnAction(e -> session.loadModels());
         view.modelSelector.setOnAction(e -> {
             String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
