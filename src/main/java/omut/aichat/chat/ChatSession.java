@@ -10,8 +10,6 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static omut.aichat.utils.Throwables.rootCause;
-
 public class ChatSession {
 
     private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
@@ -106,7 +104,7 @@ public class ChatSession {
                         @Override
                         public void onError(Throwable error) {
                             if (requestToken.get() != token) return;
-                            AIChatMessage errorMsg = AIChatMessage.system(friendlyError(error));
+                            AIChatMessage errorMsg = AIChatMessage.system(ErrorMessages.humanize(error));
                             history.add(errorMsg);
                             dispatcher.message(errorMsg);
                         }
@@ -114,7 +112,7 @@ public class ChatSession {
 
                 } catch (Exception e) {
                     if (requestToken.get() != token) return;
-                    AIChatMessage error = AIChatMessage.system(friendlyError(e));
+                    AIChatMessage error = AIChatMessage.system(ErrorMessages.humanize(e));
                     history.add(error);
                     dispatcher.message(error);
                 } finally {
@@ -343,29 +341,6 @@ public class ChatSession {
             if (history.get(i).id().equals(messageId)) return i;
         }
         return -1;
-    }
-
-    private String friendlyError(Throwable ex) {
-        if (ex == null) return "Unknown error.";
-
-        Throwable cause = rootCause(ex);
-
-        if (cause instanceof java.net.ConnectException
-                || cause instanceof java.net.NoRouteToHostException) {
-            return "Cannot connect to Ollama. Is it running?";
-        }
-        if (cause instanceof java.net.SocketTimeoutException
-                || cause instanceof java.util.concurrent.TimeoutException) {
-            return "Request timed out. The model may be loading, try again.";
-        }
-
-        String msg = cause.getMessage();
-        if (msg == null) return cause.getClass().getSimpleName();
-
-        if (msg.contains("model") && msg.contains("not found")) {
-            return "Model not found. Check that the model is pulled via 'ollama list'.";
-        }
-        return msg;
     }
 
     private List<AIChatMessage> buildRequestHistory() {
