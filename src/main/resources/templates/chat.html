@@ -85,6 +85,89 @@
             border-color: #7ee787;
         }
 
+
+        .message {
+            position: relative;
+        }
+
+        .msg-actions {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            display: none;
+            gap: 4px;
+        }
+
+        .message:hover .msg-actions {
+            display: flex;
+        }
+
+        .msg-action-btn {
+            padding: 2px 6px;
+            font-size: 12px;
+            font-family: 'Segoe UI', sans-serif;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #57606a;
+        }
+
+        .msg-action-btn:hover {
+            background: #f6f8fa;
+        }
+
+        body.theme-dark .msg-action-btn {
+            background: rgba(30, 30, 30, 0.9);
+            border-color: #444;
+            color: #c9d1d9;
+        }
+
+        body.theme-dark .msg-action-btn:hover {
+            background: #2d333b;
+        }
+
+        .msg-context-menu {
+            position: fixed;
+            display: none;
+            min-width: 160px;
+            padding: 4px 0;
+            background: #fff;
+            border: 1px solid #d0d7de;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+        }
+
+        .msg-context-menu.visible {
+            display: block;
+        }
+
+        .msg-context-menu-item {
+            padding: 6px 12px;
+            cursor: pointer;
+            color: #24292f;
+        }
+
+        .msg-context-menu-item:hover {
+            background: #f6f8fa;
+        }
+
+        body.theme-dark .msg-context-menu {
+            background: #1e1e1e;
+            border-color: #444;
+        }
+
+        body.theme-dark .msg-context-menu-item {
+            color: #c9d1d9;
+        }
+
+        body.theme-dark .msg-context-menu-item:hover {
+            background: #2d333b;
+        }
+
     </style>
 </head>
 <body>
@@ -196,6 +279,178 @@
     function decorateAllCodeBlocks(root) {
         (root || document).querySelectorAll('pre').forEach(decorateCodeBlock);
     }
+
+
+    /* -------------------------------------------------------------- *
+     *  Message actions: hover panel + context menu                    *
+     * -------------------------------------------------------------- */
+
+    var _menuEl = null;
+    var _menuTargetId = null;
+
+    /**
+     * Returns the .message element containing the given event target,
+     * or null if the click landed outside any message.
+     */
+    function findMessageEl(target) {
+        if (!target || !target.closest) return null;
+        return target.closest('.message');
+    }
+
+    /**
+     * Builds the hidden hover-panel with action buttons. Attached to
+     * each .message by decorateMessage(). Buttons only log for now —
+     * they will call into window.javaBridge once the corresponding
+     * methods land in ChatJsBridge.
+     */
+    function buildActionsPanel() {
+        var panel = document.createElement('div');
+        panel.className = 'msg-actions';
+
+        var edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'msg-action-btn';
+        edit.textContent = '✎';
+        edit.title = 'Edit';
+        edit.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var msg = findMessageEl(e.target);
+            if (!msg) return;
+            console.log('[2.3 stub] edit clicked: ' + msg.dataset.msgId);
+        });
+        panel.appendChild(edit);
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'msg-action-btn';
+        del.textContent = '×';
+        del.title = 'Delete';
+        del.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var msg = findMessageEl(e.target);
+            if (!msg) return;
+            console.log('[2.3 stub] delete clicked: ' + msg.dataset.msgId);
+        });
+        panel.appendChild(del);
+
+        return panel;
+    }
+
+    /**
+     * Adds the action panel to a single message. Idempotent per element.
+     * Skips SYSTEM messages entirely; shows Edit only when the message
+     * carries data-msg-editable="true".
+     */
+    function decorateMessage(msgEl) {
+        if (msgEl.dataset.decorated === 'yes') return;
+        msgEl.dataset.decorated = 'yes';
+
+        if (msgEl.dataset.msgRole === 'SYSTEM') return;
+
+        var panel = buildActionsPanel();
+
+        if (msgEl.dataset.msgEditable !== 'true') {
+            // Hide edit button — only delete is available for this message
+            panel.firstChild.style.display = 'none';
+        }
+
+        msgEl.appendChild(panel);
+    }
+
+    function decorateAllMessages(root) {
+        (root || document).querySelectorAll('.message').forEach(decorateMessage);
+    }
+
+    /* -------- Context menu -------- */
+
+    function ensureMenu() {
+        if (_menuEl) return _menuEl;
+
+        _menuEl = document.createElement('div');
+        _menuEl.className = 'msg-context-menu';
+
+        var del = document.createElement('div');
+        del.className = 'msg-context-menu-item';
+        del.textContent = 'Delete';
+        del.addEventListener('click', function () {
+            console.log('[2.3 stub] delete from menu: ' + _menuTargetId);
+            hideMenu();
+        });
+
+        var edit = document.createElement('div');
+        edit.className = 'msg-context-menu-item';
+        edit.textContent = 'Edit…';
+        edit.addEventListener('click', function () {
+            console.log('[2.3 stub] edit from menu: ' + _menuTargetId);
+            hideMenu();
+        });
+
+        var copy = document.createElement('div');
+        copy.className = 'msg-context-menu-item';
+        copy.textContent = 'Copy as Markdown';
+        copy.addEventListener('click', function () {
+            var msg = document.querySelector(
+                '.message[data-msg-id="' + _menuTargetId + '"]');
+            if (msg) {
+                var clone = msg.cloneNode(true);
+                clone.querySelectorAll('.msg-actions').forEach(function (n) {
+                    n.remove();
+                });
+                copyTextToClipboard(clone.innerText);
+            }
+            hideMenu();
+        });
+
+        _menuEl.appendChild(del);
+        _menuEl.appendChild(edit);
+        _menuEl.appendChild(copy);
+        document.body.appendChild(_menuEl);
+        return _menuEl;
+    }
+
+    function showMenu(x, y, msgId, editable) {
+        var menu = ensureMenu();
+        _menuTargetId = msgId;
+
+        // Edit item is index 1; hide it when not applicable
+        var items = menu.querySelectorAll('.msg-context-menu-item');
+        items[1].style.display = editable ? 'block' : 'none';
+
+        menu.classList.add('visible');
+
+        // Flip near viewport edges
+        var rect = menu.getBoundingClientRect();
+        var left = Math.min(x, window.innerWidth - rect.width - 4);
+        var top = Math.min(y, window.innerHeight - rect.height - 4);
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+    }
+
+    function hideMenu() {
+        if (_menuEl) _menuEl.classList.remove('visible');
+        _menuTargetId = null;
+    }
+
+    document.addEventListener('contextmenu', function (e) {
+        var msg = findMessageEl(e.target);
+        if (!msg) {
+            hideMenu();
+            return;
+        }
+        e.preventDefault();
+        showMenu(e.clientX, e.clientY, msg.dataset.msgId,
+            msg.dataset.msgEditable === 'true');
+    });
+
+    document.addEventListener('click', function (e) {
+        if (_menuEl && !_menuEl.contains(e.target)) hideMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideMenu();
+    });
 
     /**
      * Returns true if the user is scrolled to (or near) the bottom.

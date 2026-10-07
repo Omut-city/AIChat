@@ -91,6 +91,7 @@ public class ChatView implements ChatListener {
                 (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
                         registerJsBridge();
+                        executeScriptSafely("decorateAllMessages();");
                         executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
                     }
                 });
@@ -378,16 +379,35 @@ public class ChatView implements ChatListener {
     }
 
     private void renderMarkdown() {
+        List<AIChatMessage> history = session.getHistory();
+        String lastUserId = lastUserId(history);
+
         StringBuilder sb = new StringBuilder();
-        for (AIChatMessage message : session.getHistory()) {
-            sb.append(markdown.formatMessage(message)).append("\n\n");
+        for (AIChatMessage message : history) {
+            String inner = markdown.renderToHtml(markdown.formatMessage(message));
+            sb.append("<div class=\"message\"")
+                    .append(" data-msg-id=\"").append(message.id()).append("\"")
+                    .append(" data-msg-role=\"").append(message.role()).append("\"");
+            if (message.id().equals(lastUserId)) {
+                sb.append(" data-msg-editable=\"true\"");
+            }
+            sb.append(">").append(inner).append("</div>\n");
         }
-        String html = markdown.renderToHtml(sb.toString());
+
         view.chatView.getEngine().loadContent(
-                assets.wrapInHtml(html, currentTheme(),
+                assets.wrapInHtml(sb.toString(), currentTheme(),
                         config.chatTemplatePath(), config.highlightJsPath()
                 )
         );
+    }
+
+    private static String lastUserId(List<AIChatMessage> history) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            if (history.get(i).role() == AIChatMessage.Role.USER) {
+                return history.get(i).id();
+            }
+        }
+        return null;
     }
 
     private void onAbout() {
