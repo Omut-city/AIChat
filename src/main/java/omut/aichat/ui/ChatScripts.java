@@ -37,14 +37,15 @@ public class ChatScripts {
         execute("updateStreamingMessage(" + escaped + ");");
     }
 
+    /** Replaces the transcript with the serialised message list. */
+    public void renderTranscript(String json) {
+        String escaped = MarkdownRenderer.jsStringLiteral(json);
+        execute("renderTranscript(" + escaped + ");");
+    }
+
     /** Flips the busy flag; hover and context-menu handlers check it. */
     public void setBusy(boolean busy) {
         execute("setBusy(" + busy + ");");
-    }
-
-    /** Decorates any newly-rendered messages with hover panels. */
-    public void decorateAllMessages() {
-        execute("decorateAllMessages();");
     }
 
     /** Scrolls to the bottom if (and only if) the user is already there. */

@@ -10,7 +10,6 @@ import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
@@ -96,7 +95,7 @@ public class ChatView implements ChatListener {
                 (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
                         registerJsBridge();
-                        scripts.decorateAllMessages();
+                        renderTranscript();
                         scripts.scrollToBottom();
                     }
                 });
@@ -114,7 +113,7 @@ public class ChatView implements ChatListener {
             }
         }
 
-        renderMarkdown();
+        reloadTemplate();
 
         Platform.runLater(session::checkAvailability);
         installAccelerators(root);
@@ -160,12 +159,12 @@ public class ChatView implements ChatListener {
 
     @Override
     public void onMessage(AIChatMessage message) {
-        Platform.runLater(this::renderMarkdown);
+        Platform.runLater(this::renderTranscript);
     }
 
     @Override
     public void onHistoryChanged() {
-        Platform.runLater(this::renderMarkdown);
+        Platform.runLater(this::renderTranscript);
     }
 
     @Override
@@ -195,9 +194,7 @@ public class ChatView implements ChatListener {
     @Override
     public void onCleared() {
         Platform.runLater(() -> {
-            view.chatView.getEngine().loadContent(
-                    assets.wrapInHtml("", currentTheme(), config)
-            );
+            reloadTemplate();
             view.noticeLabel.setText("");
         });
     }
@@ -395,34 +392,27 @@ public class ChatView implements ChatListener {
         });
     }
 
-    private void renderMarkdown() {
-        List<AIChatMessage> history = session.getHistory();
-        String lastUserId = lastUserId(history);
-
-        StringBuilder sb = new StringBuilder();
-        for (AIChatMessage message : history) {
-            String inner = markdown.renderToHtml(markdown.formatMessage(message));
-            sb.append("<div class=\"message\"")
-                    .append(" data-msg-id=\"").append(message.id()).append("\"")
-                    .append(" data-msg-role=\"").append(message.role()).append("\"");
-            if (message.id().equals(lastUserId)) {
-                sb.append(" data-msg-editable=\"true\"");
-            }
-            sb.append(">").append(inner).append("</div>\n");
-        }
-
-        view.chatView.getEngine().loadContent(
-                assets.wrapInHtml(sb.toString(), currentTheme(), config)
-        );
+    /**
+     * Hands the current history to chat.js, which rebuilds the
+     * transcript DOM. Does not reload the page — the JS bridge stays
+     * alive across the update.
+     */
+    private void renderTranscript() {
+        String json = TranscriptJson.toJson(session.getHistory(), markdown);
+        scripts.renderTranscript(json);
     }
 
-    private static String lastUserId(List<AIChatMessage> history) {
-        for (int i = history.size() - 1; i >= 0; i--) {
-            if (history.get(i).role() == AIChatMessage.Role.USER) {
-                return history.get(i).id();
-            }
-        }
-        return null;
+    /**
+     * Reloads the HTML template from scratch with the current theme.
+     * Used at startup, on theme change, and on clear — situations
+     * where the {@code <body class>} or the page itself must be
+     * rebuilt. The load listener then calls {@link #renderTranscript}
+     * to repopulate the empty body.
+     */
+    private void reloadTemplate() {
+        view.chatView.getEngine().loadContent(
+                assets.wrapInHtml("", currentTheme(), config)
+        );
     }
 
     private void onAbout() {
@@ -464,7 +454,7 @@ public class ChatView implements ChatListener {
         Theme theme = Theme.fromId(themeId);
         config.setTheme(theme.id());
         theme.apply();
-        renderMarkdown();
+        reloadTemplate();
     }
 
     private Theme currentTheme() {

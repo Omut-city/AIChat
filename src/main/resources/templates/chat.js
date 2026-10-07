@@ -37,6 +37,37 @@ function updateStreamingMessage(html) {
 }
 
 /**
+ * Replaces the current transcript with the given messages.
+ * Each message is { id, role, html, editable }. The DOM shape of a
+ * row lives here, not in Java: Java hands over data, this function
+ * decides which element wraps them.
+ */
+function renderTranscript(json) {
+    var messages = JSON.parse(json);
+
+    document.querySelectorAll('.message').forEach(function (el) {
+        el.remove();
+    });
+    var streaming = document.getElementById('streaming-message');
+    if (streaming) streaming.remove();
+
+    var container = document.body;
+    messages.forEach(function (m) {
+        var el = document.createElement('div');
+        el.className = 'message';
+        el.dataset.msgId = m.id;
+        el.dataset.msgRole = m.role;
+        if (m.editable) el.dataset.msgEditable = 'true';
+        el.innerHTML = m.html;
+        container.appendChild(el);
+        decorateMessage(el);
+    });
+
+    hljs.highlightAll();
+    decorateAllCodeBlocks();
+}
+
+/**
  * Copies text to the clipboard. Prefers the async Clipboard API when
  * available (secure contexts), falls back to execCommand('copy') for
  * plain JavaFX WebView where navigator.clipboard is undefined.
@@ -122,9 +153,8 @@ function findMessageEl(target) {
 
 /**
  * Builds the hidden hover-panel with action buttons. Attached to
- * each .message by decorateMessage(). Buttons only log for now —
- * they will call into window.javaBridge once the corresponding
- * methods land in ChatJsBridge.
+ * each .message by decorateMessage(). Buttons call into
+ * window.javaBridge, which delegates to ChatSession.
  */
 function buildActionsPanel() {
     var panel = document.createElement('div');
@@ -185,15 +215,10 @@ function decorateMessage(msgEl) {
     var panel = buildActionsPanel();
 
     if (msgEl.dataset.msgEditable !== 'true') {
-        // Hide edit button — only delete is available for this message
         panel.firstChild.style.display = 'none';
     }
 
     msgEl.appendChild(panel);
-}
-
-function decorateAllMessages(root) {
-    (root || document).querySelectorAll('.message').forEach(decorateMessage);
 }
 
 /* -------- Context menu -------- */
