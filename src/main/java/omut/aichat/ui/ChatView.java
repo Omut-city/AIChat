@@ -13,6 +13,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
+import javafx.stage.Window;
 import javafx.util.Duration;
 // Wildcard import: JSObject is deprecated since JDK 24 and IDEA
 // flags a single-type import, though the type itself still works.
@@ -39,7 +40,6 @@ public class ChatView implements ChatListener {
 
     private static final Logger log = LoggerFactory.getLogger(ChatView.class);
     private static final long STREAM_RENDER_INTERVAL_NANOS = 80_000_000L;
-    private static final String PROJECT_URL = "https://github.com/Omut-city/AIChat";
 
     private PauseTransition noticeTimer;
 
@@ -239,7 +239,7 @@ public class ChatView implements ChatListener {
                 new FileChooser.ExtensionFilter("All files", "*.*")
         );
 
-        File file = chooser.showOpenDialog(view.chatView.getScene().getWindow());
+        File file = chooser.showOpenDialog(window());
         if (file == null) return;
 
         try {
@@ -297,12 +297,8 @@ public class ChatView implements ChatListener {
     }
 
     private void onEditSystemPrompt() {
-        SystemPromptDialog dialog = new SystemPromptDialog(
-                config.systemPrompt(),
-                config.defaultSystemPrompt()
-        );
-        dialog.initOwner(view.chatView.getScene().getWindow());
-        String newPrompt = dialog.showAndWait().orElse(null);
+        String newPrompt = ChatDialogs.editSystemPrompt(
+                window(), config.systemPrompt(), config.defaultSystemPrompt());
         if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(config.systemPrompt())) {
             session.setSystemPrompt(newPrompt);
         }
@@ -311,10 +307,11 @@ public class ChatView implements ChatListener {
     private String openEditDialog(String messageId) {
         AIChatMessage msg = findMessageById(messageId);
         if (msg == null) return null;
+        return ChatDialogs.editMessage(window(), msg.text());
+    }
 
-        EditMessageDialog dialog = new EditMessageDialog(msg.text());
-        dialog.initOwner(view.chatView.getScene().getWindow());
-        return dialog.showAndWait().orElse(null);
+    private Window window() {
+        return view.chatView.getScene().getWindow();
     }
 
     private AIChatMessage findMessageById(String messageId) {
@@ -325,9 +322,8 @@ public class ChatView implements ChatListener {
     }
 
     private void onSettings() {
-        SettingsDialog dialog = new SettingsDialog(config.getBaseUrl(), config.defaultBaseUrl());
-        dialog.initOwner(view.chatView.getScene().getWindow());
-        String newUrl = dialog.showAndWait().orElse(null);
+        String newUrl = ChatDialogs.editBaseUrl(
+                window(), config.getBaseUrl(), config.defaultBaseUrl());
         if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(config.getBaseUrl())) {
             session.setBaseUrl(newUrl);
         }
@@ -345,7 +341,7 @@ public class ChatView implements ChatListener {
         chooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("Markdown (*.md)", "*.md"));
 
-        File file = chooser.showSaveDialog(view.chatView.getScene().getWindow());
+        File file = chooser.showSaveDialog(window());
         if (file == null) return;
 
         try {
@@ -430,22 +426,7 @@ public class ChatView implements ChatListener {
     }
 
     private void onAbout() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("About AIChat");
-        alert.setHeaderText("AIChat — Local Offline LLM");
-        alert.initOwner(view.chatView.getScene().getWindow());
-
-        Hyperlink link = new Hyperlink(PROJECT_URL);
-        link.setOnAction(_ -> hostServices.showDocument(PROJECT_URL));
-
-        VBox content = new VBox(8,
-                new Label("A simple offline chat with local LLMs."),
-                new Label("Built with Java 25, JavaFX 25, Ollama and LangChain4j."),
-                link
-        );
-        alert.getDialogPane().setContent(content);
-
-        alert.showAndWait();
+        ChatDialogs.showAbout(window(), hostServices);
     }
 
     /**
