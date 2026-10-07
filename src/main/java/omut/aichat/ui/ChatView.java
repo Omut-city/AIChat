@@ -14,7 +14,10 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
-import netscape.javascript.JSObject; // Deprecated in JDK 24; no replacement, so we keep using it
+// Wildcard import: JSObject is deprecated since JDK 24 and IDEA
+// flags a single-type import, though the type itself still works.
+// There is no replacement; JSObject is how we expose the bridge.
+import netscape.javascript.*;
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
@@ -47,6 +50,7 @@ public class ChatView implements ChatListener {
     private final AppConfig config;
     private final HostServices hostServices;
     private final ChatJsBridge jsBridge;
+    private final ChatScripts scripts;
 
     private volatile long lastStreamRenderNanos = 0;
     private boolean busy = false;
@@ -62,6 +66,7 @@ public class ChatView implements ChatListener {
         this.hostServices = hostServices;
         this.session.addListener(this);
         this.jsBridge = new ChatJsBridge(session, this::openEditDialog);
+        this.scripts = new ChatScripts(view.chatView.getEngine());
     }
 
     public Parent build() {
@@ -91,8 +96,8 @@ public class ChatView implements ChatListener {
                 (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
                         registerJsBridge();
-                        executeScriptSafely("decorateAllMessages();");
-                        executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
+                        scripts.decorateAllMessages();
+                        scripts.scrollToBottom();
                     }
                 });
         view.themeGroup.selectedToggleProperty().addListener((_, _, newToggle) -> {
@@ -170,8 +175,8 @@ public class ChatView implements ChatListener {
             view.typingLabel.setText("AI is thinking...");
             view.stopButton.setDisable(false);
             updateControls();
-            executeScriptSafely("beginStreaming();");
-            executeScriptSafely("setBusy(true);");
+            scripts.beginStreaming();
+            scripts.setBusy(true);
         });
     }
 
@@ -183,7 +188,7 @@ public class ChatView implements ChatListener {
             view.stopButton.setDisable(true);
             updateControls();
             view.inputField.requestFocus();
-            executeScriptSafely("setBusy(false);");
+            scripts.setBusy(false);
         });
     }
 
@@ -210,7 +215,7 @@ public class ChatView implements ChatListener {
             view.stopButton.setDisable(true);
             updateControls();
             view.inputField.requestFocus();
-            executeScriptSafely("setBusy(false);");
+            scripts.setBusy(false);
         });
     }
 
@@ -255,9 +260,8 @@ public class ChatView implements ChatListener {
 
         Platform.runLater(() -> {
             String html = markdown.renderToHtml(fullText);
-            String escaped = MarkdownRenderer.jsStringLiteral(html);
-            executeScriptSafely("updateStreamingMessage(" + escaped + ");");
-            executeScriptSafely("if (isAtBottom()) scrollToBottom();");
+            scripts.updateStreamingMessage(html);
+            scripts.scrollIfAtBottom();
         });
     }
 
@@ -442,19 +446,6 @@ public class ChatView implements ChatListener {
         alert.getDialogPane().setContent(content);
 
         alert.showAndWait();
-    }
-
-    /**
-     * Execute JS in the WebView, ignoring failures.
-     * Failures can happen if the document has not finished loading yet
-     * (e.g. user sent a message before WebView loaded chat.html).
-     */
-    private void executeScriptSafely(String script) {
-        try {
-            view.chatView.getEngine().executeScript(script);
-        } catch (Exception e) {
-            log.warn("executeScript failed: {} — {}", script, e.getMessage());
-        }
     }
 
     /**
