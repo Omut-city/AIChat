@@ -5,7 +5,6 @@ import omut.aichat.service.LlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,19 +18,7 @@ public class ChatSession {
     private final LlmService llmService;
     private final AppConfig config;
     private final ChatDispatcher dispatcher = new ChatDispatcher();
-
-    /**
-     * Conversation history.
-     * <p>
-     * Access rule: only the JavaFX Application Thread and the single
-     * {@code chat-worker} thread touch this list, and never concurrently.
-     * The UI enforces this via {@link omut.aichat.ui.ChatView}'s
-     * {@code updateControls()}, which disables all input widgets while
-     * a request is in flight. Breaking this invariant requires switching
-     * to {@link java.util.Collections#synchronizedList(java.util.List)} and wrapping
-     * every iteration in {@code synchronized (history)}.
-     */
-    private final List<AIChatMessage> history = new ArrayList<>();
+    private final HistoryEditor editor = new HistoryEditor();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
@@ -43,7 +30,7 @@ public class ChatSession {
         this.config = config;
         String prompt = config.systemPrompt();
         if (!prompt.isBlank()) {
-            history.add(AIChatMessage.system(prompt));
+            editor.append(AIChatMessage.system(prompt));
         }
     }
 
@@ -52,7 +39,7 @@ public class ChatSession {
     }
 
     public List<AIChatMessage> getHistory() {
-        return List.copyOf(history);
+        return editor.snapshot();
     }
 
     public void checkAvailability() {
@@ -69,7 +56,7 @@ public class ChatSession {
         Object token = new Object();
         requestToken.set(token);
 
-        history.add(userMessage);
+        editor.append(userMessage);
         dispatcher.message(userMessage);
         dispatcher.thinkingStarted();
 
@@ -82,8 +69,7 @@ public class ChatSession {
                 long start = System.nanoTime();
                 try {
                     List<AIChatMessage> requestHistory =
-                            RequestHistoryBuilder.trim(history, config.historyMaxMessages());
-
+                            RequestHistoryBuilder.trim(editor.snapshot(), config.historyMaxMessages());
                     llmService.askStreaming(requestHistory, new StreamingCallback() {
 
                         @Override
@@ -98,7 +84,7 @@ public class ChatSession {
                             long elapsedMillis = (System.nanoTime() - start) / 1_000_000;
                             AIChatMessage assistantMessage = AIChatMessage.assistant(
                                     response.text(), response.durationMillis(), currentModel());
-                            history.add(assistantMessage);
+                            editor.append(assistantMessage);
                             dispatcher.message(assistantMessage);
                             dispatcher.responseTime(elapsedMillis);
                             dispatcher.tokensPerSecond(response.tokensPerSecond());
@@ -108,7 +94,7 @@ public class ChatSession {
                         public void onError(Throwable error) {
                             if (requestToken.get() != token) return;
                             AIChatMessage errorMsg = AIChatMessage.system(ErrorMessages.humanize(error));
-                            history.add(errorMsg);
+                            editor.append(errorMsg);
                             dispatcher.message(errorMsg);
                         }
                     });
@@ -116,7 +102,7 @@ public class ChatSession {
                 } catch (Exception e) {
                     if (requestToken.get() != token) return;
                     AIChatMessage error = AIChatMessage.system(ErrorMessages.humanize(e));
-                    history.add(error);
+                    editor.append(error);
                     dispatcher.message(error);
                 } finally {
                     if (requestToken.compareAndSet(token, null)) {
@@ -132,30 +118,18 @@ public class ChatSession {
         }
     }
 
-    /**
-     * Removes the assistant's reply to the last user message and re-sends
-     * the same prompt. Used by the "Regenerate" button.
-     * <p>
-     * If there is no user message to regenerate, emits a system notice.
-     */
     public void regenerateLast() {
         if (executor.isShutdown()) return;
-        if (requestToken.get() != null) return; // already in flight
+        if (requestToken.get() != null) return;
 
-        int lastUserIndex = -1;
-        for (int i = history.size() - 1; i >= 0; i--) {
-            if (history.get(i).role() == AIChatMessage.Role.USER) {
-                lastUserIndex = i;
-                break;
-            }
-        }
+        int lastUserIndex = editor.lastUserIndex();
 
         if (lastUserIndex < 0) {
             dispatcher.message(AIChatMessage.system("Nothing to regenerate."));
             return;
         }
 
-        history.subList(lastUserIndex + 1, history.size()).clear();
+        editor.cutAfter(lastUserIndex);
         dispatcher.historyChanged();
 
         Object token = new Object();
@@ -169,37 +143,27 @@ public class ChatSession {
         if (executor.isShutdown()) return;
         if (requestToken.get() != null) return;
 
-        int idx = indexOf(messageId);
+        int idx = editor.indexOf(messageId);
         if (idx < 0) return;
-        if (history.get(idx).role() == AIChatMessage.Role.SYSTEM) return;
+        if (editor.get(idx).role() == AIChatMessage.Role.SYSTEM) return;
 
-        history.subList(idx, history.size()).clear();
+        editor.cutFrom(idx);
         dispatcher.historyChanged();
     }
 
-    /**
-     * Replaces a USER message with new text and re-sends the prompt.
-     * Everything from that message onward is discarded first, so the old
-     * reply (and any later turns) is lost.
-     * <p>
-     * No-op if the id does not refer to a USER message, if the message is
-     * unknown, or if a request is already in flight.
-     * <p>
-     * Called from the WebView bridge on the FX thread.
-     */
     public void editUserMessage(String messageId, String newText) {
         if (messageId == null || messageId.isBlank()) return;
         if (newText == null || newText.isBlank()) return;
         if (executor.isShutdown()) return;
         if (requestToken.get() != null) return;
 
-        int idx = indexOf(messageId);
+        int idx = editor.indexOf(messageId);
         if (idx < 0) return;
-        if (history.get(idx).role() != AIChatMessage.Role.USER) return;
+        if (editor.get(idx).role() != AIChatMessage.Role.USER) return;
 
-        history.subList(idx, history.size()).clear();
+        editor.cutFrom(idx);
         AIChatMessage userMessage = AIChatMessage.user(newText.trim());
-        history.add(userMessage);
+        editor.append(userMessage);
         dispatcher.historyChanged();
 
         Object token = new Object();
@@ -235,10 +199,6 @@ public class ChatSession {
         return llmService.currentModel();
     }
 
-    /**
-     * Attaches a file's contents to the conversation as a system message.
-     * The model will see it in the next request.
-     */
     public void attachFile(String fileName, String content) {
         if (fileName == null || fileName.isBlank()) return;
         if (content == null || content.isBlank()) {
@@ -256,17 +216,17 @@ public class ChatSession {
         submit(() -> {
             String text = "[Attached: " + fileName + "]\n\n" + content;
             AIChatMessage attachment = AIChatMessage.system(text);
-            history.add(attachment);
+            editor.append(attachment);
             dispatcher.message(AIChatMessage.system("Attached: " + fileName));
         });
     }
 
     public void clear() {
         submit(() -> {
-            history.clear();
+            editor.clear();
             String prompt = config.systemPrompt();
             if (!prompt.isBlank()) {
-                history.add(AIChatMessage.system(prompt));
+                editor.append(AIChatMessage.system(prompt));
             }
             dispatcher.cleared();
             dispatcher.message(AIChatMessage.system("Chat cleared."));
@@ -296,7 +256,7 @@ public class ChatSession {
         }
 
         AIChatMessage cancelNote = AIChatMessage.system("Generation cancelled.");
-        history.add(cancelNote);
+        editor.append(cancelNote);
         dispatcher.message(cancelNote);
         dispatcher.requestCancelled();
         dispatcher.thinkingFinished();
@@ -319,16 +279,16 @@ public class ChatSession {
             try {
                 config.setSystemPrompt(prompt);
                 String updated = config.systemPrompt();
-                boolean hasSystem = !history.isEmpty()
-                        && history.getFirst().role() == AIChatMessage.Role.SYSTEM;
+                boolean hasSystem = !editor.isEmpty()
+                        && editor.first().role() == AIChatMessage.Role.SYSTEM;
 
                 if (updated.isBlank()) {
-                    if (hasSystem) history.removeFirst();
+                    if (hasSystem) editor.removeFirst();
                 } else {
                     if (hasSystem) {
-                        history.set(0, AIChatMessage.system(updated));
+                        editor.set(0, AIChatMessage.system(updated));
                     } else {
-                        history.addFirst(AIChatMessage.system(updated));
+                        editor.prepend(AIChatMessage.system(updated));
                     }
                 }
                 dispatcher.message(AIChatMessage.system("System prompt updated."));
@@ -336,14 +296,6 @@ public class ChatSession {
                 dispatcher.message(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
             }
         });
-    }
-
-
-    private int indexOf(String messageId) {
-        for (int i = 0; i < history.size(); i++) {
-            if (history.get(i).id().equals(messageId)) return i;
-        }
-        return -1;
     }
 
     private void submit(Runnable task) {
