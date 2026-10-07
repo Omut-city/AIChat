@@ -65,6 +65,7 @@ public class ChatSession {
     public void send(String userText) {
         if (userText == null || userText.isBlank()) return;
         if (executor.isShutdown()) return;
+        if (requestToken.get() != null) return;
 
         AIChatMessage userMessage = AIChatMessage.user(userText.trim());
 
@@ -156,10 +157,10 @@ public class ChatSession {
 
         history.subList(lastUserIndex + 1, history.size()).clear();
         notifyHistoryChanged();
-        notifyThinkingStarted();
 
         Object token = new Object();
         requestToken.set(token);
+        notifyThinkingStarted();
         submitStreamingRequest(token);
     }
 
@@ -177,7 +178,7 @@ public class ChatSession {
     }
 
     /**
-     * Replaces the last user message with new text and re-sends the prompt.
+     * Replaces a USER message with new text and re-sends the prompt.
      * Everything from that message onward is discarded first, so the old
      * reply (and any later turns) is lost.
      * <p>
@@ -186,7 +187,7 @@ public class ChatSession {
      * <p>
      * Called from the WebView bridge on the FX thread.
      */
-    public void editLastUser(String messageId, String newText) {
+    public void editUserMessage(String messageId, String newText) {
         if (messageId == null || messageId.isBlank()) return;
         if (newText == null || newText.isBlank()) return;
         if (executor.isShutdown()) return;
@@ -200,10 +201,10 @@ public class ChatSession {
         AIChatMessage userMessage = AIChatMessage.user(newText.trim());
         history.add(userMessage);
         notifyHistoryChanged();
-        notifyThinkingStarted();
 
         Object token = new Object();
         requestToken.set(token);
+        notifyThinkingStarted();
         submitStreamingRequest(token);
     }
 

@@ -40,14 +40,14 @@ public class ChatJsBridge {
     }
 
     /**
-     * Called from JavaScript as {@code window.javaBridge.editLastUser(id)}.
+     * Called from JavaScript as {@code window.javaBridge.editUserMessage(id)}.
      * Opens the edit dialog and, if the user saves, replaces the message
      * and re-sends the prompt.
      */
-    public void editLastUser(String messageId) {
-        log.debug("editLastUser: {}", messageId);
+    public void editUserMessage(String messageId) {
+        log.debug("editUserMessage: {}", messageId);
         String newText = editDialog.apply(messageId);
         if (newText == null || newText.isBlank()) return;
-        session.editLastUser(messageId, newText);
+        session.editUserMessage(messageId, newText);
     }
 }

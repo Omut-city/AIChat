@@ -322,7 +322,7 @@
                 console.error('javaBridge not available');
                 return;
             }
-            window.javaBridge.editLastUser(msg.dataset.msgId);
+            window.javaBridge.editUserMessage(msg.dataset.msgId);
         });
         panel.appendChild(edit);
 
@@ -407,7 +407,7 @@
                 console.error('javaBridge not available');
                 return;
             }
-            window.javaBridge.editLastUser(id);
+            window.javaBridge.editUserMessage(id);
         });
 
         var copy = document.createElement('div');
