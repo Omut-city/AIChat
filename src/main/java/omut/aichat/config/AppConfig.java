@@ -1,50 +1,25 @@
 package omut.aichat.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.util.Properties;
-
+/**
+ * Facade over bundled defaults ({@link AppDefaults}) and persisted
+ * user overrides ({@link UserConfig}).
+ * <p>
+ * Every getter resolves "user value if present, otherwise default"
+ * — that combination lives here, and only here. Anything that only
+ * reads {@code application.properties} belongs to AppDefaults;
+ * anything that only persists user settings belongs to UserConfig.
+ */
 public class AppConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
-
-    private static final String DEFAULT_BASE_URL = "http://127.0.0.1:11434";
-    private static final String DEFAULT_MODEL = "qwen2.5:7b";
-
-    private static final String PROPERTIES_FILE = "/application.properties";
-
-    private final Properties properties = new Properties();
+    private final AppDefaults defaults = new AppDefaults();
     private final UserConfig userConfig = new UserConfig();
 
     private volatile String baseUrl;
     private volatile String systemPrompt;
 
     public AppConfig() {
-        load();
         this.baseUrl = resolveBaseUrl();
         this.systemPrompt = resolveSystemPrompt();
-    }
-
-    private void load() {
-        try (InputStream in = AppConfig.class.getResourceAsStream(PROPERTIES_FILE)) {
-            if (in == null) {
-                log.warn("Properties file not found on classpath: {} — using built-in defaults",
-                        PROPERTIES_FILE);
-                return;
-            }
-            try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                properties.load(reader);
-                log.debug("Loaded {} properties from {}", properties.size(), PROPERTIES_FILE);
-            }
-        } catch (IOException e) {
-            log.warn("Failed to read {} — using built-in defaults: {}", PROPERTIES_FILE, e.getMessage());
-        }
     }
 
     public String getBaseUrl() {
@@ -53,7 +28,7 @@ public class AppConfig {
 
     public void setBaseUrl(String baseUrl) {
         if (baseUrl == null || baseUrl.isBlank()) {
-            this.baseUrl = defaultBaseUrl();
+            this.baseUrl = defaults.baseUrl();
             userConfig.setBaseUrl(null);
         } else {
             this.baseUrl = baseUrl.trim();
@@ -62,31 +37,31 @@ public class AppConfig {
     }
 
     public String defaultBaseUrl() {
-        return properties.getProperty(ConfigKeys.OLLAMA_BASE_URL, DEFAULT_BASE_URL);
+        return defaults.baseUrl();
     }
 
     public String defaultModel() {
-        return properties.getProperty(ConfigKeys.OLLAMA_DEFAULT_MODEL, DEFAULT_MODEL);
+        return defaults.model();
     }
 
     public int requestTimeoutMinutes() {
-        return getInt(ConfigKeys.OLLAMA_REQUEST_TIMEOUT_MINUTES, 5);
+        return defaults.requestTimeoutMinutes();
     }
 
     public double temperature() {
-        return getDouble(ConfigKeys.OLLAMA_TEMPERATURE, 0.5);
+        return defaults.temperature();
     }
 
     public String windowTitle() {
-        return properties.getProperty(ConfigKeys.APP_WINDOW_TITLE, "AIChat - Local Offline LLM");
+        return defaults.windowTitle();
     }
 
     public int windowWidth() {
-        return getInt(ConfigKeys.APP_WINDOW_WIDTH, 640);
+        return defaults.windowWidth();
     }
 
     public int windowHeight() {
-        return getInt(ConfigKeys.APP_WINDOW_HEIGHT, 540);
+        return defaults.windowHeight();
     }
 
     public String systemPrompt() {
@@ -95,7 +70,7 @@ public class AppConfig {
 
     public void setSystemPrompt(String prompt) {
         if (prompt == null || prompt.isBlank()) {
-            this.systemPrompt = defaultSystemPrompt();
+            this.systemPrompt = defaults.systemPrompt();
             userConfig.setSystemPrompt(null);
         } else {
             this.systemPrompt = prompt.trim();
@@ -104,7 +79,7 @@ public class AppConfig {
     }
 
     public String defaultSystemPrompt() {
-        return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, "");
+        return defaults.systemPrompt();
     }
 
     public String selectedModel() {
@@ -112,7 +87,7 @@ public class AppConfig {
         if (userValue != null && !userValue.isBlank()) {
             return userValue;
         }
-        return defaultModel();
+        return defaults.model();
     }
 
     public void setSelectedModel(String model) {
@@ -128,7 +103,7 @@ public class AppConfig {
         if (userValue != null && !userValue.isBlank()) {
             return userValue;
         }
-        return properties.getProperty(ConfigKeys.OLLAMA_BASE_URL, DEFAULT_BASE_URL);
+        return defaults.baseUrl();
     }
 
     private String resolveSystemPrompt() {
@@ -136,61 +111,39 @@ public class AppConfig {
         if (userValue != null) {
             return userValue;
         }
-        return properties.getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT, "");
+        return defaults.systemPrompt();
     }
 
     public int historyMaxMessages() {
-        return Math.max(2, getInt(ConfigKeys.CHAT_HISTORY_MAX_MESSAGES, 20));
+        return defaults.historyMaxMessages();
     }
 
     public String highlightJsPath() {
-        return properties.getProperty(ConfigKeys.HIGHLIGHT_JS_PATH, "/highlight/highlight.min.js");
+        return defaults.highlightJsPath();
     }
 
     public String chatTemplatePath() {
-        return properties.getProperty(ConfigKeys.CHAT_TEMPLATE_PATH, "/templates/chat.html");
+        return defaults.chatTemplatePath();
     }
 
     public String applicationCssPath() {
-        return properties.getProperty(ConfigKeys.APP_CSS_PATH, "/css/application.css");
+        return defaults.applicationCssPath();
     }
 
     public String chatCssPath() {
-        return properties.getProperty(ConfigKeys.CHAT_CSS_PATH, "/css/chat.css");
+        return defaults.chatCssPath();
     }
 
     public String chatJsPath() {
-        return properties.getProperty(ConfigKeys.CHAT_JS_PATH, "/templates/chat.js");
+        return defaults.chatJsPath();
     }
 
     public int attachMaxChars() {
-        return getInt(ConfigKeys.CHAT_ATTACH_MAX_CHARS, 100_000);
-    }
-
-    private int getInt(String key, int defaultValue) {
-        String value = properties.getProperty(key);
-        if (value == null) return defaultValue;
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException e) {
-            log.warn("Invalid integer for {} = '{}' — using default {}", key, value, defaultValue);
-            return defaultValue;
-        }
-    }
-
-    private double getDouble(String key, double defaultValue) {
-        String value = properties.getProperty(key);
-        if (value == null) return defaultValue;
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (NumberFormatException e) {
-            log.warn("Invalid double for {} = '{}' — using default {}", key, value, defaultValue);
-            return defaultValue;
-        }
+        return defaults.attachMaxChars();
     }
 
     public String defaultTheme() {
-        return properties.getProperty(ConfigKeys.APP_THEME, "NordLight");
+        return defaults.theme();
     }
 
     public String theme() {
@@ -198,7 +151,7 @@ public class AppConfig {
         if (userValue != null && !userValue.isBlank()) {
             return userValue;
         }
-        return defaultTheme();
+        return defaults.theme();
     }
 
     public void setTheme(String theme) {
