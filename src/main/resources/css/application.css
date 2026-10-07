@@ -11,3 +11,36 @@
     -fx-border-color: crimson;
     -fx-border-width: 1;
 }
+
+/*
+ * State classes for labels whose colour depends on runtime state.
+ * The colour lives here; Java only flips the class.
+ */
+
+.label.status-available {
+    -fx-text-fill: seagreen;
+}
+
+.label.status-unavailable {
+    -fx-text-fill: crimson;
+}
+
+.label.status-unknown {
+    -fx-text-fill: gray;
+}
+
+.label.notice-info {
+    -fx-text-fill: darkslategray;
+}
+
+.label.notice-success {
+    -fx-text-fill: seagreen;
+}
+
+.label.notice-error {
+    -fx-text-fill: crimson;
+}
+
+.label.muted {
+    -fx-text-fill: darkslategray;
+}

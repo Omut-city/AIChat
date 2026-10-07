@@ -10,7 +10,6 @@ import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -126,13 +125,13 @@ public class ChatView implements ChatListener {
             llmAvailable = available;
             if (available) {
                 view.statusLabel.setText("Status: Ollama is available  |  Model: " + session.currentModel());
-                view.statusLabel.setTextFill(Color.SEAGREEN);
+                setStatusStyle(true);
                 if (view.modelSelector.getItems().isEmpty()) {
                     session.loadModels();
                 }
             } else {
                 view.statusLabel.setText("Status: Ollama is NOT available");
-                view.statusLabel.setTextFill(Color.CRIMSON);
+                setStatusStyle(false);
             }
             updateControls();
         });
@@ -153,7 +152,7 @@ public class ChatView implements ChatListener {
     public void onModelChanged(String modelName) {
         Platform.runLater(() -> {
             view.statusLabel.setText("Status: Ollama is available  |  Model: " + modelName);
-            view.statusLabel.setTextFill(Color.SEAGREEN);
+            setStatusStyle(true);
         });
     }
 
@@ -243,7 +242,7 @@ public class ChatView implements ChatListener {
             String content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
             session.attachFile(file.getName(), content);
         } catch (IOException e) {
-            showNotice("Attach failed: " + e.getMessage(), Color.CRIMSON);
+            showError("Attach failed: " + e.getMessage());
         }
     }
 
@@ -343,23 +342,23 @@ public class ChatView implements ChatListener {
 
         try {
             ChatExporter.exportMarkdown(history, file.toPath());
-            showNotice("Saved: " + file.getName(), Color.SEAGREEN);
+            showSuccess("Saved: " + file.getName());
         } catch (IOException e) {
-            showNotice("Save failed: " + e.getMessage(), Color.CRIMSON);
+            showError("Save failed: " + e.getMessage());
         }
     }
 
     private void onCopyLast() {
         AIChatMessage last = lastAssistantMessage();
         if (last == null) {
-            showNotice("Nothing to copy", Color.DARKSLATEGRAY);
+            showInfo("Nothing to copy");
             return;
         }
         String plain = MarkdownRenderer.stripMarkdown(last.text());
         ClipboardContent content = new ClipboardContent();
         content.putString(plain);
         Clipboard.getSystemClipboard().setContent(content);
-        showNotice("Copied last response", Color.SEAGREEN);
+        showSuccess("Copied last response");
     }
 
     private AIChatMessage lastAssistantMessage() {
@@ -378,10 +377,23 @@ public class ChatView implements ChatListener {
         return "chat-" + model + "-" + LocalDate.now() + ".md";
     }
 
-    private void showNotice(String text, Color color) {
+    private void showInfo(String text) {
+        showNotice(text, "notice-info");
+    }
+
+    private void showSuccess(String text) {
+        showNotice(text, "notice-success");
+    }
+
+    private void showError(String text) {
+        showNotice(text, "notice-error");
+    }
+
+    private void showNotice(String text, String styleClass) {
         Platform.runLater(() -> {
             view.noticeLabel.setText(text);
-            view.noticeLabel.setTextFill(color);
+            view.noticeLabel.getStyleClass().removeAll("notice-info", "notice-success", "notice-error");
+            view.noticeLabel.getStyleClass().add(styleClass);
 
             if (noticeTimer != null) {
                 noticeTimer.stop();
@@ -462,5 +474,12 @@ public class ChatView implements ChatListener {
 
     private Theme currentTheme() {
         return Theme.fromId(config.theme());
+    }
+
+    private void setStatusStyle(boolean available) {
+        view.statusLabel.getStyleClass().removeAll(
+                "status-available", "status-unavailable", "status-unknown");
+        view.statusLabel.getStyleClass().add(
+                available ? "status-available" : "status-unavailable");
     }
 }

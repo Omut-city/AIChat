@@ -8,7 +8,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 
 /**
@@ -116,11 +115,11 @@ public class ChatViewBuilder {
         inputBox.setAlignment(Pos.CENTER_LEFT);
         inputBox.setPadding(new Insets(10));
 
-        noticeLabel.setTextFill(Color.DARKSLATEGRAY);
-        statusLabel.setTextFill(Color.GRAY);
-        typingLabel.setTextFill(Color.DARKSLATEGRAY);
-        lastResponseLabel.setTextFill(Color.DARKSLATEGRAY);
-        speedLabel.setTextFill(Color.DARKSLATEGRAY);
+        noticeLabel.getStyleClass().add("notice-info");
+        statusLabel.getStyleClass().add("status-unknown");
+        typingLabel.getStyleClass().add("muted");
+        lastResponseLabel.getStyleClass().add("muted");
+        speedLabel.getStyleClass().add("muted");
 
         Region statusSpacer = new Region();
         HBox.setHgrow(statusSpacer, Priority.ALWAYS);
