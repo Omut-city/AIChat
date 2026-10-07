@@ -191,9 +191,7 @@ public class ChatView implements ChatListener {
     public void onCleared() {
         Platform.runLater(() -> {
             view.chatView.getEngine().loadContent(
-                    assets.wrapInHtml("", currentTheme(),
-                            config.chatTemplatePath(), config.highlightJsPath()
-                    )
+                    assets.wrapInHtml("", currentTheme(), config)
             );
             view.noticeLabel.setText("");
         });
@@ -414,9 +412,7 @@ public class ChatView implements ChatListener {
         }
 
         view.chatView.getEngine().loadContent(
-                assets.wrapInHtml(sb.toString(), currentTheme(),
-                        config.chatTemplatePath(), config.highlightJsPath()
-                )
+                assets.wrapInHtml(sb.toString(), currentTheme(), config)
         );
     }
 

@@ -1,5 +1,7 @@
 package omut.aichat.ui;
 
+import omut.aichat.config.AppConfig;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,15 +18,16 @@ public final class AssetLoader {
     private final Map<String, HtmlTemplate> templateCache = new HashMap<>();
 
     /** Wraps a body fragment into the chat HTML template for a theme. */
-    public String wrapInHtml(
-            String body,
-            Theme theme,
-            String templatePath,
-            String highlightJsPath
-    ) {
-        String css = asset("/highlight/" + theme.highlightCss());
-        String js = asset(highlightJsPath);
-        String base = template(templatePath).render(css, js, body);
+    public String wrapInHtml(String body, Theme theme, AppConfig config) {
+        String highlightCss = asset("/highlight/" + theme.highlightCss());
+        String chatCss = asset(config.chatCssPath());
+        String highlightJs = asset(config.highlightJsPath());
+        String chatJs = asset(config.chatJsPath());
+
+        String css = highlightCss + "\n" + chatCss;
+        String js = highlightJs + "\n" + chatJs;
+
+        String base = template(config.chatTemplatePath()).render(css, js, body);
         return base.replace("<body>", "<body class=\"" + theme.bodyClass() + "\">");
     }
 

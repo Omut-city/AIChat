@@ -26,6 +26,8 @@ public final class ConfigKeys {
     public static final String CHAT_HISTORY_MAX_MESSAGES = "chat.history.max.messages";
     public static final String CHAT_ATTACH_MAX_CHARS = "chat.attach.max.chars";
     public static final String CHAT_TEMPLATE_PATH = "chat.template.path";
+    public static final String CHAT_CSS_PATH = "chat.css.path";
+    public static final String CHAT_JS_PATH = "chat.js.path";
 
     // UI
     public static final String APP_WINDOW_TITLE = "app.window.title";

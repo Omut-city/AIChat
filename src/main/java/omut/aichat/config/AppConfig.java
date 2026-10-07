@@ -151,6 +151,14 @@ public class AppConfig {
         return properties.getProperty(ConfigKeys.CHAT_TEMPLATE_PATH, "/templates/chat.html");
     }
 
+    public String chatCssPath() {
+        return properties.getProperty(ConfigKeys.CHAT_CSS_PATH, "/templates/chat.css");
+    }
+
+    public String chatJsPath() {
+        return properties.getProperty(ConfigKeys.CHAT_JS_PATH, "/templates/chat.js");
+    }
+
     public int attachMaxChars() {
         return getInt(ConfigKeys.CHAT_ATTACH_MAX_CHARS, 100_000);
     }
