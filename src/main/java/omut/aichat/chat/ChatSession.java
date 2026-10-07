@@ -176,6 +176,37 @@ public class ChatSession {
         notifyHistoryChanged();
     }
 
+    /**
+     * Replaces the last user message with new text and re-sends the prompt.
+     * Everything from that message onward is discarded first, so the old
+     * reply (and any later turns) is lost.
+     * <p>
+     * No-op if the id does not refer to a USER message, if the message is
+     * unknown, or if a request is already in flight.
+     * <p>
+     * Called from the WebView bridge on the FX thread.
+     */
+    public void editLastUser(String messageId, String newText) {
+        if (messageId == null || messageId.isBlank()) return;
+        if (newText == null || newText.isBlank()) return;
+        if (executor.isShutdown()) return;
+        if (requestToken.get() != null) return;
+
+        int idx = indexOf(messageId);
+        if (idx < 0) return;
+        if (history.get(idx).role() != AIChatMessage.Role.USER) return;
+
+        history.subList(idx, history.size()).clear();
+        AIChatMessage userMessage = AIChatMessage.user(newText.trim());
+        history.add(userMessage);
+        notifyHistoryChanged();
+        notifyThinkingStarted();
+
+        Object token = new Object();
+        requestToken.set(token);
+        submitStreamingRequest(token);
+    }
+
     public void loadModels() {
         submit(() -> {
             List<String> models = llmService.listModels();

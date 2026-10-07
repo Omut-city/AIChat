@@ -61,7 +61,7 @@ public class ChatView implements ChatListener {
         this.config = config;
         this.hostServices = hostServices;
         this.session.addListener(this);
-        this.jsBridge = new ChatJsBridge(session);
+        this.jsBridge = new ChatJsBridge(session, this::openEditDialog);
     }
 
     public Parent build() {
@@ -304,6 +304,22 @@ public class ChatView implements ChatListener {
         if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(config.systemPrompt())) {
             session.setSystemPrompt(newPrompt);
         }
+    }
+
+    private String openEditDialog(String messageId) {
+        AIChatMessage msg = findMessageById(messageId);
+        if (msg == null) return null;
+
+        EditMessageDialog dialog = new EditMessageDialog(msg.text());
+        dialog.initOwner(view.chatView.getScene().getWindow());
+        return dialog.showAndWait().orElse(null);
+    }
+
+    private AIChatMessage findMessageById(String messageId) {
+        for (AIChatMessage m : session.getHistory()) {
+            if (m.id().equals(messageId)) return m;
+        }
+        return null;
     }
 
     private void onSettings() {

@@ -315,9 +315,14 @@
         edit.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            if (document.body.dataset.busy === 'true') return;
             var msg = findMessageEl(e.target);
             if (!msg) return;
-            console.log('[2.3 stub] edit clicked: ' + msg.dataset.msgId);
+            if (!window.javaBridge) {
+                console.error('javaBridge not available');
+                return;
+            }
+            window.javaBridge.editLastUser(msg.dataset.msgId);
         });
         panel.appendChild(edit);
 
@@ -395,8 +400,14 @@
         edit.className = 'msg-context-menu-item';
         edit.textContent = 'Edit…';
         edit.addEventListener('click', function () {
-            console.log('[2.3 stub] edit from menu: ' + _menuTargetId);
+            var id = _menuTargetId;
             hideMenu();
+            if (!id) return;
+            if (!window.javaBridge) {
+                console.error('javaBridge not available');
+                return;
+            }
+            window.javaBridge.editLastUser(id);
         });
 
         var copy = document.createElement('div');
