@@ -81,7 +81,10 @@ public class ChatSession {
             Future<?> future = executor.submit(() -> {
                 long start = System.nanoTime();
                 try {
-                    llmService.askStreaming(buildRequestHistory(), new StreamingCallback() {
+                    List<AIChatMessage> requestHistory =
+                            RequestHistoryBuilder.trim(history, config.historyMaxMessages());
+
+                    llmService.askStreaming(requestHistory, new StreamingCallback() {
 
                         @Override
                         public void onToken(String chunk, String fullText) {
@@ -341,28 +344,6 @@ public class ChatSession {
             if (history.get(i).id().equals(messageId)) return i;
         }
         return -1;
-    }
-
-    private List<AIChatMessage> buildRequestHistory() {
-        int max = config.historyMaxMessages();
-        int total = history.size();
-        if (total <= max) {
-            return new ArrayList<>(history);
-        }
-
-        List<AIChatMessage> trimmed = new ArrayList<>();
-
-        int startIndex = 0;
-        if (!history.isEmpty() && history.getFirst().role() == AIChatMessage.Role.SYSTEM) {
-            trimmed.add(history.getFirst());
-            startIndex = 1;
-        }
-
-        int keep = max - trimmed.size();
-        int from = Math.max(startIndex, total - keep);
-        trimmed.addAll(history.subList(from, total));
-
-        return trimmed;
     }
 
     private void submit(Runnable task) {
