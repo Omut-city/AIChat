@@ -13,6 +13,8 @@ import omut.aichat.ui.Theme;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+
 public class AiChatApp extends Application {
 
     private static final Logger log = LoggerFactory.getLogger(AiChatApp.class);
@@ -30,6 +32,12 @@ public class AiChatApp extends Application {
         Parent root = view.build();
 
         Scene scene = new Scene(root, config.windowWidth(), config.windowHeight());
+        scene.getStylesheets().add(
+                Objects.requireNonNull(
+                        getClass().getResource(config.applicationCssPath()),
+                        config.applicationCssPath() + " not found on classpath"
+                ).toExternalForm());
+
         stage.setTitle(config.windowTitle());
         stage.setScene(scene);
         stage.show();

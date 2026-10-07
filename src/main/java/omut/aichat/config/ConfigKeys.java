@@ -34,6 +34,7 @@ public final class ConfigKeys {
     public static final String APP_WINDOW_WIDTH = "app.window.width";
     public static final String APP_WINDOW_HEIGHT = "app.window.height";
     public static final String APP_THEME = "app.theme";
+    public static final String APP_CSS_PATH = "app.css.path";
 
     // Syntax highlighting
     public static final String HIGHLIGHT_JS_PATH = "highlight.js.path";

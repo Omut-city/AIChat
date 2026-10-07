@@ -151,8 +151,12 @@ public class AppConfig {
         return properties.getProperty(ConfigKeys.CHAT_TEMPLATE_PATH, "/templates/chat.html");
     }
 
+    public String applicationCssPath() {
+        return properties.getProperty(ConfigKeys.APP_CSS_PATH, "/css/application.css");
+    }
+
     public String chatCssPath() {
-        return properties.getProperty(ConfigKeys.CHAT_CSS_PATH, "/templates/chat.css");
+        return properties.getProperty(ConfigKeys.CHAT_CSS_PATH, "/css/chat.css");
     }
 
     public String chatJsPath() {

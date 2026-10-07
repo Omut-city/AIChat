@@ -1,5 +1,6 @@
 package omut.aichat.ui;
 
+import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -10,6 +11,8 @@ import javafx.scene.layout.VBox;
 import java.net.URI;
 
 public class SettingsDialog extends Dialog<String> {
+
+    private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
 
     public SettingsDialog(String currentBaseUrl, String defaultBaseUrl) {
         setTitle("Settings");
@@ -36,13 +39,12 @@ public class SettingsDialog extends Dialog<String> {
         urlField.textProperty().addListener((obs, oldValue, newValue) -> {
             boolean valid = normalizeBaseUrl(newValue) != null;
             okButton.setDisable(!valid);
-            urlField.setStyle(valid
-                    ? ""
-                    : "-fx-border-color: crimson; -fx-border-width: 1;");
+            urlField.pseudoClassStateChanged(INVALID, !valid);
         });
 
         boolean initialValid = normalizeBaseUrl(currentBaseUrl) != null;
         okButton.setDisable(!initialValid);
+        urlField.pseudoClassStateChanged(INVALID, !initialValid);
 
         setResultConverter(button -> {
             if (button != ButtonType.OK) return null;

@@ -1,0 +1,13 @@
+/*
+ * Application-level CSS for the JavaFX side.
+ * Loaded once per Scene in AiChatApp.start().
+ *
+ * TextField with :invalid pseudo-class — set by code when the
+ * field's value does not pass its validator. The pseudo-class
+ * is a property of the control's state, not of the field's
+ * identity, so it belongs in CSS, not in a one-off setStyle().
+ */
+.text-field:invalid {
+    -fx-border-color: crimson;
+    -fx-border-width: 1;
+}
