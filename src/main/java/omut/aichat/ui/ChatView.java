@@ -171,6 +171,7 @@ public class ChatView implements ChatListener {
             view.stopButton.setDisable(false);
             updateControls();
             executeScriptSafely("beginStreaming();");
+            executeScriptSafely("setBusy(true);");
         });
     }
 
@@ -182,6 +183,7 @@ public class ChatView implements ChatListener {
             view.stopButton.setDisable(true);
             updateControls();
             view.inputField.requestFocus();
+            executeScriptSafely("setBusy(false);");
         });
     }
 
@@ -210,6 +212,7 @@ public class ChatView implements ChatListener {
             view.stopButton.setDisable(true);
             updateControls();
             view.inputField.requestFocus();
+            executeScriptSafely("setBusy(false);");
         });
     }
 

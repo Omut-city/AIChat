@@ -329,9 +329,14 @@
         del.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            if (document.body.dataset.busy === 'true') return;
             var msg = findMessageEl(e.target);
             if (!msg) return;
-            console.log('[2.3 stub] delete clicked: ' + msg.dataset.msgId);
+            if (!window.javaBridge) {
+                console.error('javaBridge not available');
+                return;
+            }
+            window.javaBridge.deleteMessage(msg.dataset.msgId);
         });
         panel.appendChild(del);
 
@@ -374,9 +379,16 @@
         var del = document.createElement('div');
         del.className = 'msg-context-menu-item';
         del.textContent = 'Delete';
+
         del.addEventListener('click', function () {
-            console.log('[2.3 stub] delete from menu: ' + _menuTargetId);
+            var id = _menuTargetId;
             hideMenu();
+            if (!id) return;
+            if (!window.javaBridge) {
+                console.error('javaBridge not available');
+                return;
+            }
+            window.javaBridge.deleteMessage(id);
         });
 
         var edit = document.createElement('div');
@@ -451,6 +463,10 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') hideMenu();
     });
+
+    function setBusy(busy) {
+        document.body.dataset.busy = busy ? 'true' : 'false';
+    }
 
     /**
      * Returns true if the user is scrolled to (or near) the bottom.

@@ -23,4 +23,13 @@ public class ChatJsBridge {
     public ChatJsBridge(ChatSession session) {
         this.session = session;
     }
+
+    /**
+     * Called from JavaScript as {@code window.javaBridge.deleteMessage(id)}.
+     * Deletes the message with the given id and everything after it.
+     */
+    public void deleteMessage(String messageId) {
+        log.debug("deleteMessage: {}", messageId);
+        session.deleteFrom(messageId);
+    }
 }

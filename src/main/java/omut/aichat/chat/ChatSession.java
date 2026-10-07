@@ -163,6 +163,19 @@ public class ChatSession {
         submitStreamingRequest(token);
     }
 
+    public void deleteFrom(String messageId) {
+        if (messageId == null || messageId.isBlank()) return;
+        if (executor.isShutdown()) return;
+        if (requestToken.get() != null) return;
+
+        int idx = indexOf(messageId);
+        if (idx < 0) return;
+        if (history.get(idx).role() == AIChatMessage.Role.SYSTEM) return;
+
+        history.subList(idx, history.size()).clear();
+        notifyHistoryChanged();
+    }
+
     public void loadModels() {
         submit(() -> {
             List<String> models = llmService.listModels();
@@ -291,6 +304,14 @@ public class ChatSession {
                 notifyMessage(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
             }
         });
+    }
+
+
+    private int indexOf(String messageId) {
+        for (int i = 0; i < history.size(); i++) {
+            if (history.get(i).id().equals(messageId)) return i;
+        }
+        return -1;
     }
 
     private String friendlyError(Throwable ex) {
