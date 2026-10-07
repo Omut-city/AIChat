@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import static omut.aichat.utils.Throwables.rootCause;
 
@@ -21,6 +20,7 @@ public class ChatSession {
     private final AtomicReference<Object> requestToken = new AtomicReference<>();
     private final LlmService llmService;
     private final AppConfig config;
+    private final ChatDispatcher dispatcher = new ChatDispatcher();
 
     /**
      * Conversation history.
@@ -34,7 +34,6 @@ public class ChatSession {
      * every iteration in {@code synchronized (history)}.
      */
     private final List<AIChatMessage> history = new ArrayList<>();
-    private final List<ChatListener> listeners = new CopyOnWriteArrayList<>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
@@ -51,7 +50,7 @@ public class ChatSession {
     }
 
     public void addListener(ChatListener listener) {
-        listeners.add(listener);
+        dispatcher.add(listener);
     }
 
     public List<AIChatMessage> getHistory() {
@@ -59,7 +58,7 @@ public class ChatSession {
     }
 
     public void checkAvailability() {
-        submit(() -> notifyStatus(llmService.isAvailable()));
+        submit(() -> dispatcher.status(llmService.isAvailable()));
     }
 
     public void send(String userText) {
@@ -73,8 +72,8 @@ public class ChatSession {
         requestToken.set(token);
 
         history.add(userMessage);
-        notifyMessage(userMessage);
-        notifyThinkingStarted();
+        dispatcher.message(userMessage);
+        dispatcher.thinkingStarted();
 
         submitStreamingRequest(token);
     }
@@ -89,7 +88,7 @@ public class ChatSession {
                         @Override
                         public void onToken(String chunk, String fullText) {
                             if (requestToken.get() != token) return;
-                            notifyToken(chunk, fullText);
+                            dispatcher.token(chunk, fullText);
                         }
 
                         @Override
@@ -99,9 +98,9 @@ public class ChatSession {
                             AIChatMessage assistantMessage = AIChatMessage.assistant(
                                     response.text(), response.durationMillis(), currentModel());
                             history.add(assistantMessage);
-                            notifyMessage(assistantMessage);
-                            notifyResponseTime(elapsedMillis);
-                            notifyTokensPerSecond(response.tokensPerSecond());
+                            dispatcher.message(assistantMessage);
+                            dispatcher.responseTime(elapsedMillis);
+                            dispatcher.tokensPerSecond(response.tokensPerSecond());
                         }
 
                         @Override
@@ -109,7 +108,7 @@ public class ChatSession {
                             if (requestToken.get() != token) return;
                             AIChatMessage errorMsg = AIChatMessage.system(friendlyError(error));
                             history.add(errorMsg);
-                            notifyMessage(errorMsg);
+                            dispatcher.message(errorMsg);
                         }
                     });
 
@@ -117,18 +116,18 @@ public class ChatSession {
                     if (requestToken.get() != token) return;
                     AIChatMessage error = AIChatMessage.system(friendlyError(e));
                     history.add(error);
-                    notifyMessage(error);
+                    dispatcher.message(error);
                 } finally {
                     if (requestToken.compareAndSet(token, null)) {
                         currentRequest.set(null);
-                        notifyThinkingFinished();
+                        dispatcher.thinkingFinished();
                     }
                 }
             });
             currentRequest.set(future);
         } catch (RejectedExecutionException e) {
             requestToken.set(null);
-            notifyThinkingFinished();
+            dispatcher.thinkingFinished();
         }
     }
 
@@ -151,16 +150,16 @@ public class ChatSession {
         }
 
         if (lastUserIndex < 0) {
-            notifyMessage(AIChatMessage.system("Nothing to regenerate."));
+            dispatcher.message(AIChatMessage.system("Nothing to regenerate."));
             return;
         }
 
         history.subList(lastUserIndex + 1, history.size()).clear();
-        notifyHistoryChanged();
+        dispatcher.historyChanged();
 
         Object token = new Object();
         requestToken.set(token);
-        notifyThinkingStarted();
+        dispatcher.thinkingStarted();
         submitStreamingRequest(token);
     }
 
@@ -174,7 +173,7 @@ public class ChatSession {
         if (history.get(idx).role() == AIChatMessage.Role.SYSTEM) return;
 
         history.subList(idx, history.size()).clear();
-        notifyHistoryChanged();
+        dispatcher.historyChanged();
     }
 
     /**
@@ -200,33 +199,33 @@ public class ChatSession {
         history.subList(idx, history.size()).clear();
         AIChatMessage userMessage = AIChatMessage.user(newText.trim());
         history.add(userMessage);
-        notifyHistoryChanged();
+        dispatcher.historyChanged();
 
         Object token = new Object();
         requestToken.set(token);
-        notifyThinkingStarted();
+        dispatcher.thinkingStarted();
         submitStreamingRequest(token);
     }
 
     public void loadModels() {
         submit(() -> {
             List<String> models = llmService.listModels();
-            notifyModelsLoaded(models);
+            dispatcher.modelsLoaded(models);
         });
     }
 
     public void switchModel(String modelName) {
         if (modelName == null || modelName.isBlank()) {
-            notifyMessage(AIChatMessage.system("Invalid model name."));
+            dispatcher.message(AIChatMessage.system("Invalid model name."));
             return;
         }
         submit(() -> {
             try {
                 llmService.switchModel(modelName);
                 config.setSelectedModel(modelName);
-                notifyModelChanged(modelName);
+                dispatcher.modelChanged(modelName);
             } catch (Exception e) {
-                notifyMessage(AIChatMessage.system("Failed to switch model: " + e.getMessage()));
+                dispatcher.message(AIChatMessage.system("Failed to switch model: " + e.getMessage()));
             }
         });
     }
@@ -242,13 +241,13 @@ public class ChatSession {
     public void attachFile(String fileName, String content) {
         if (fileName == null || fileName.isBlank()) return;
         if (content == null || content.isBlank()) {
-            notifyMessage(AIChatMessage.system("Attached file is empty: " + fileName));
+            dispatcher.message(AIChatMessage.system("Attached file is empty: " + fileName));
             return;
         }
 
         int max = config.attachMaxChars();
         if (content.length() > max) {
-            notifyMessage(AIChatMessage.system(
+            dispatcher.message(AIChatMessage.system(
                     "File too large: " + content.length() + " chars, limit is " + max));
             return;
         }
@@ -257,7 +256,7 @@ public class ChatSession {
             String text = "[Attached: " + fileName + "]\n\n" + content;
             AIChatMessage attachment = AIChatMessage.system(text);
             history.add(attachment);
-            notifyMessage(AIChatMessage.system("Attached: " + fileName));
+            dispatcher.message(AIChatMessage.system("Attached: " + fileName));
         });
     }
 
@@ -268,8 +267,8 @@ public class ChatSession {
             if (!prompt.isBlank()) {
                 history.add(AIChatMessage.system(prompt));
             }
-            notifyCleared();
-            notifyMessage(AIChatMessage.system("Chat cleared."));
+            dispatcher.cleared();
+            dispatcher.message(AIChatMessage.system("Chat cleared."));
         });
     }
 
@@ -297,19 +296,19 @@ public class ChatSession {
 
         AIChatMessage cancelNote = AIChatMessage.system("Generation cancelled.");
         history.add(cancelNote);
-        notifyMessage(cancelNote);
-        notifyRequestCancelled();
-        notifyThinkingFinished();
+        dispatcher.message(cancelNote);
+        dispatcher.requestCancelled();
+        dispatcher.thinkingFinished();
     }
 
     public void setBaseUrl(String baseUrl) {
         submit(() -> {
             try {
                 llmService.setBaseUrl(baseUrl);
-                notifyMessage(AIChatMessage.system("Base URL set to: " + config.getBaseUrl()));
-                notifyStatus(llmService.isAvailable());
+                dispatcher.message(AIChatMessage.system("Base URL set to: " + config.getBaseUrl()));
+                dispatcher.status(llmService.isAvailable());
             } catch (Exception e) {
-                notifyMessage(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
+                dispatcher.message(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
             }
         });
     }
@@ -331,9 +330,9 @@ public class ChatSession {
                         history.addFirst(AIChatMessage.system(updated));
                     }
                 }
-                notifyMessage(AIChatMessage.system("System prompt updated."));
+                dispatcher.message(AIChatMessage.system("System prompt updated."));
             } catch (Exception e) {
-                notifyMessage(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
+                dispatcher.message(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
             }
         });
     }
@@ -399,62 +398,4 @@ public class ChatSession {
             log.warn("Task rejected — executor is shutting down");
         }
     }
-
-    private void dispatch(Consumer<ChatListener> action) {
-        for (ChatListener l : listeners) {
-            try { action.accept(l); }
-            catch (Exception e) {
-                log.warn("Listener failed", e);
-            }
-        }
-    }
-
-    private void notifyMessage(AIChatMessage m) {
-        dispatch(l -> l.onMessage(m));
-    }
-
-    private void notifyHistoryChanged() {
-        dispatch(ChatListener::onHistoryChanged);
-    }
-
-    private void notifyThinkingStarted() {
-        dispatch(ChatListener::onThinkingStarted);
-    }
-
-    private void notifyThinkingFinished() {
-        dispatch(ChatListener::onThinkingFinished);
-    }
-
-    private void notifyStatus(boolean available) {
-        dispatch(l -> l.onStatusChanged(available));
-    }
-
-    private void notifyCleared() {
-        dispatch(ChatListener::onCleared);
-    }
-
-    private void notifyModelsLoaded(List<String> models) {
-        dispatch(l -> l.onModelsLoaded(models));
-    }
-
-    private void notifyModelChanged(String modelName) {
-        dispatch(l -> l.onModelChanged(modelName));
-    }
-
-    private void notifyResponseTime(long millis) {
-        dispatch(l -> l.onResponseTime(millis));
-    }
-
-    private void notifyTokensPerSecond(double tps) {
-        dispatch(l -> l.onTokensPerSecond(tps));
-    }
-
-    private void notifyRequestCancelled() {
-        dispatch(ChatListener::onRequestCancelled);
-    }
-
-    private void notifyToken(String chunk, String fullText) {
-        dispatch(l -> l.onToken(chunk, fullText));
-    }
-
 }
