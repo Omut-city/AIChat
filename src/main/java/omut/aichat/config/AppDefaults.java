@@ -63,7 +63,15 @@ final class AppDefaults {
     }
 
     double temperature() {
-        return getDouble(ConfigKeys.OLLAMA_TEMPERATURE, 0.5);
+        String value = properties.getProperty(ConfigKeys.OLLAMA_TEMPERATURE);
+        if (value == null) return 0.5;
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Invalid double for {} = '{}' — using default {}",
+                    ConfigKeys.OLLAMA_TEMPERATURE, value, 0.5);
+            return 0.5;
+        }
     }
 
     String windowTitle() {
@@ -125,14 +133,4 @@ final class AppDefaults {
         }
     }
 
-    private double getDouble(String key, double defaultValue) {
-        String value = properties.getProperty(key);
-        if (value == null) return defaultValue;
-        try {
-            return Double.parseDouble(value.trim());
-        } catch (NumberFormatException e) {
-            log.warn("Invalid double for {} = '{}' — using default {}", key, value, defaultValue);
-            return defaultValue;
-        }
-    }
 }

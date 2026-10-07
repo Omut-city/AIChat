@@ -40,10 +40,6 @@ public class AppConfig {
         return defaults.baseUrl();
     }
 
-    public String defaultModel() {
-        return defaults.model();
-    }
-
     public int requestTimeoutMinutes() {
         return defaults.requestTimeoutMinutes();
     }
@@ -140,10 +136,6 @@ public class AppConfig {
 
     public int attachMaxChars() {
         return defaults.attachMaxChars();
-    }
-
-    public String defaultTheme() {
-        return defaults.theme();
     }
 
     public String theme() {
