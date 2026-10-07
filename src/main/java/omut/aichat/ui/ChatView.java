@@ -452,6 +452,9 @@ public class ChatView implements ChatListener {
 
     private void applyTheme(String themeId) {
         Theme theme = Theme.fromId(themeId);
+        if (theme.id().equals(config.theme())) {
+            return;
+        }
         config.setTheme(theme.id());
         theme.apply();
         reloadTemplate();
