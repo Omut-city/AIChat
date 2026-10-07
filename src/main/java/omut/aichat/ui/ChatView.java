@@ -14,6 +14,7 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
+import netscape.javascript.JSObject; // Deprecated in JDK 24; no replacement, so we keep using it
 import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatExporter;
 import omut.aichat.chat.ChatListener;
@@ -45,6 +46,7 @@ public class ChatView implements ChatListener {
     private final ChatSession session;
     private final AppConfig config;
     private final HostServices hostServices;
+    private final ChatJsBridge jsBridge;
 
     private volatile long lastStreamRenderNanos = 0;
     private boolean busy = false;
@@ -59,6 +61,7 @@ public class ChatView implements ChatListener {
         this.config = config;
         this.hostServices = hostServices;
         this.session.addListener(this);
+        this.jsBridge = new ChatJsBridge(session);
     }
 
     public Parent build() {
@@ -87,6 +90,7 @@ public class ChatView implements ChatListener {
         view.chatView.getEngine().getLoadWorker().stateProperty().addListener(
                 (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
+                        registerJsBridge();
                         executeScriptSafely("window.scrollTo(0, document.body.scrollHeight);");
                     }
                 });
@@ -415,6 +419,22 @@ public class ChatView implements ChatListener {
             view.chatView.getEngine().executeScript(script);
         } catch (Exception e) {
             log.warn("executeScript failed: {} — {}", script, e.getMessage());
+        }
+    }
+
+    /**
+     * Exposes {@link ChatJsBridge} to the loaded document as
+     * {@code window.javaBridge}. Called after every successful page load —
+     * WebView creates a fresh JavaScript context on each loadContent, so
+     * the bridge must be re-registered each time.
+     */
+    @SuppressWarnings("removal")
+    private void registerJsBridge() {
+        try {
+            JSObject window = (JSObject) view.chatView.getEngine().executeScript("window");
+            window.setMember("javaBridge", jsBridge);
+        } catch (Exception e) {
+            log.warn("Failed to register JS bridge: {}", e.getMessage());
         }
     }
 

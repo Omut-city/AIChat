@@ -10,6 +10,7 @@ module omut.aichat {
     requires atlantafx.base;
     requires java.desktop;
     requires java.net.http;
+    requires jdk.jsobject;
 
     exports omut.aichat;
     exports omut.aichat.chat;
