@@ -27,8 +27,8 @@ public final class AssetLoader {
         String css = highlightCss + "\n" + chatCss;
         String js = highlightJs + "\n" + chatJs;
 
-        String base = template(config.chatTemplatePath()).render(css, js, body);
-        return base.replace("<body>", "<body class=\"" + theme.bodyClass() + "\">");
+        return template(config.chatTemplatePath())
+                .render(css, js, theme.bodyClass(), body);
     }
 
     private HtmlTemplate template(String path) {

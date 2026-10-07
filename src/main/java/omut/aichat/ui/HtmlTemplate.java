@@ -20,10 +20,16 @@ public class HtmlTemplate {
         }
     }
 
-    public String render(String cssContent, String jsContent, String body) {
+    public String render(
+            String cssContent,
+            String jsContent,
+            String bodyClass,
+            String body
+    ) {
         return template
                 .replace("{{CSS}}", cssContent)
                 .replace("{{JS}}", jsContent)
+                .replace("{{BODY_CLASS}}", bodyClass)
                 .replace("{{BODY}}", body);
     }
 
