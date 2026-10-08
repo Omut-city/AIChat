@@ -12,4 +12,10 @@ public interface LlmService {
     String currentModel();
     void setBaseUrl(String baseUrl);
     void askStreaming(List<AIChatMessage> conversation, StreamingCallback callback);
+    /**
+     * Rebuilds the underlying streaming model from the current
+     * configuration. Call after changing any setting that feeds into
+     * the model — base URL, temperature, request timeout.
+     */
+    void rebuildModel();
 }

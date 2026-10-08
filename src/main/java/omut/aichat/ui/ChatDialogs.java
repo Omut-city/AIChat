@@ -6,6 +6,7 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
+import omut.aichat.config.AppSettings;
 
 /**
  * Factory for the modal dialogs used by the chat window.
@@ -39,14 +40,18 @@ public final class ChatDialogs {
         return dialog.showAndWait().orElse(null);
     }
 
-    /** Returns the new base URL, or {@code null} if cancelled. */
-    public static String editBaseUrl(Window owner, String current, String fallback) {
-        SettingsDialog dialog = new SettingsDialog(current, fallback);
+    /** Returns the edited settings, or {@code null} if cancelled. */
+    public static AppSettings editSettings(
+            Window owner,
+            AppSettings current,
+            AppSettings defaults
+    ) {
+        SettingsDialog dialog = new SettingsDialog(current, defaults);
         dialog.initOwner(owner);
         return dialog.showAndWait().orElse(null);
     }
 
-    /** Shows a non-blocking-free About dialog. */
+    /** Shows the About dialog. Blocks until the user closes it. */
     public static void showAbout(Window owner, HostServices hostServices) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("About AIChat");

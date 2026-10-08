@@ -19,6 +19,7 @@ import javafx.util.Duration;
 import netscape.javascript.*;
 import omut.aichat.chat.*;
 import omut.aichat.config.AppConfig;
+import omut.aichat.config.AppSettings;
 import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -325,10 +326,23 @@ public class ChatView implements ChatListener {
     }
 
     private void onSettings() {
-        String newUrl = ChatDialogs.editBaseUrl(
-                window(), config.getBaseUrl(), config.defaultBaseUrl());
-        if (newUrl != null && !newUrl.isBlank() && !newUrl.equals(config.getBaseUrl())) {
-            session.setBaseUrl(newUrl);
+        AppSettings current = new AppSettings(
+                config.getBaseUrl(),
+                config.temperature(),
+                config.requestTimeoutMinutes(),
+                config.historyMaxMessages(),
+                config.attachMaxChars()
+        );
+        AppSettings defaults = new AppSettings(
+                config.defaultBaseUrl(),
+                config.defaultTemperature(),
+                config.defaultRequestTimeoutMinutes(),
+                config.defaultHistoryMaxMessages(),
+                config.defaultAttachMaxChars()
+        );
+        AppSettings result = ChatDialogs.editSettings(window(), current, defaults);
+        if (result != null) {
+            session.applySettings(result);
         }
     }
 

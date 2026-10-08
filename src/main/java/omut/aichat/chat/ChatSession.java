@@ -1,6 +1,7 @@
 package omut.aichat.chat;
 
 import omut.aichat.config.AppConfig;
+import omut.aichat.config.AppSettings;
 import omut.aichat.service.LlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -262,14 +263,27 @@ public class ChatSession {
         dispatcher.thinkingFinished();
     }
 
-    public void setBaseUrl(String baseUrl) {
+    /**
+     * Applies a full settings snapshot atomically on the worker thread:
+     * persists each value through {@link AppConfig}, then rebuilds the
+     * streaming model so temperature and timeout changes take effect
+     * without restart.
+     */
+    public void applySettings(AppSettings settings) {
+        if (settings == null) return;
         submit(() -> {
             try {
-                llmService.setBaseUrl(baseUrl);
-                dispatcher.notice("Base URL set to: " + config.getBaseUrl(), NoticeLevel.SUCCESS);
+                config.setBaseUrl(settings.baseUrl());
+                config.setTemperature(settings.temperature());
+                config.setRequestTimeoutMinutes(settings.requestTimeoutMinutes());
+                config.setHistoryMaxMessages(settings.historyMaxMessages());
+                config.setAttachMaxChars(settings.attachMaxChars());
+                llmService.rebuildModel();
+                dispatcher.notice("Settings saved.", NoticeLevel.SUCCESS);
                 dispatcher.status(llmService.isAvailable());
             } catch (Exception e) {
-                dispatcher.notice("Failed to set base URL: " + e.getMessage(), NoticeLevel.ERROR);
+                dispatcher.notice("Failed to apply settings: " + e.getMessage(),
+                        NoticeLevel.ERROR);
             }
         });
     }

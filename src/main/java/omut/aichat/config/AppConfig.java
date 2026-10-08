@@ -16,10 +16,18 @@ public class AppConfig {
 
     private volatile String baseUrl;
     private volatile String systemPrompt;
+    private volatile double temperature;
+    private volatile int requestTimeoutMinutes;
+    private volatile int historyMaxMessages;
+    private volatile int attachMaxChars;
 
     public AppConfig() {
         this.baseUrl = resolveBaseUrl();
         this.systemPrompt = resolveSystemPrompt();
+        this.temperature = resolveTemperature();
+        this.requestTimeoutMinutes = resolveRequestTimeoutMinutes();
+        this.historyMaxMessages = resolveHistoryMaxMessages();
+        this.attachMaxChars = resolveAttachMaxChars();
     }
 
     public String getBaseUrl() {
@@ -41,11 +49,11 @@ public class AppConfig {
     }
 
     public int requestTimeoutMinutes() {
-        return defaults.requestTimeoutMinutes();
+        return requestTimeoutMinutes;
     }
 
     public double temperature() {
-        return defaults.temperature();
+        return temperature;
     }
 
     public String windowTitle() {
@@ -110,8 +118,32 @@ public class AppConfig {
         return defaults.systemPrompt();
     }
 
-    public int historyMaxMessages() {
+    private double resolveTemperature() {
+        Double userValue = userConfig.getTemperature();
+        if (userValue != null) return userValue;
+        return defaults.temperature();
+    }
+
+    private int resolveRequestTimeoutMinutes() {
+        Integer userValue = userConfig.getRequestTimeoutMinutes();
+        if (userValue != null) return userValue;
+        return defaults.requestTimeoutMinutes();
+    }
+
+    private int resolveHistoryMaxMessages() {
+        Integer userValue = userConfig.getHistoryMaxMessages();
+        if (userValue != null) return userValue;
         return defaults.historyMaxMessages();
+    }
+
+    private int resolveAttachMaxChars() {
+        Integer userValue = userConfig.getAttachMaxChars();
+        if (userValue != null) return userValue;
+        return defaults.attachMaxChars();
+    }
+
+    public int historyMaxMessages() {
+        return historyMaxMessages;
     }
 
     public String highlightJsPath() {
@@ -135,7 +167,7 @@ public class AppConfig {
     }
 
     public int attachMaxChars() {
-        return defaults.attachMaxChars();
+        return attachMaxChars;
     }
 
     public String theme() {
@@ -152,5 +184,41 @@ public class AppConfig {
         } else {
             userConfig.setTheme(theme);
         }
+    }
+
+    public void setTemperature(double temperature) {
+        this.temperature = temperature;
+        userConfig.setTemperature(temperature);
+    }
+
+    public double defaultTemperature() {
+        return defaults.temperature();
+    }
+
+    public void setRequestTimeoutMinutes(int minutes) {
+        this.requestTimeoutMinutes = minutes;
+        userConfig.setRequestTimeoutMinutes(minutes);
+    }
+
+    public int defaultRequestTimeoutMinutes() {
+        return defaults.requestTimeoutMinutes();
+    }
+
+    public void setHistoryMaxMessages(int max) {
+        this.historyMaxMessages = max;
+        userConfig.setHistoryMaxMessages(max);
+    }
+
+    public int defaultHistoryMaxMessages() {
+        return defaults.historyMaxMessages();
+    }
+
+    public void setAttachMaxChars(int max) {
+        this.attachMaxChars = max;
+        userConfig.setAttachMaxChars(max);
+    }
+
+    public int defaultAttachMaxChars() {
+        return defaults.attachMaxChars();
     }
 }

@@ -109,4 +109,78 @@ public class UserConfig {
         }
         save();
     }
+
+    public synchronized Double getTemperature() {
+        return parseDouble(ConfigKeys.OLLAMA_TEMPERATURE);
+    }
+
+    public synchronized void setTemperature(Double value) {
+        if (value == null) {
+            properties.remove(ConfigKeys.OLLAMA_TEMPERATURE);
+        } else {
+            properties.setProperty(ConfigKeys.OLLAMA_TEMPERATURE, value.toString());
+        }
+        save();
+    }
+
+    public synchronized Integer getRequestTimeoutMinutes() {
+        return parseInt(ConfigKeys.OLLAMA_REQUEST_TIMEOUT_MINUTES);
+    }
+
+    public synchronized void setRequestTimeoutMinutes(Integer value) {
+        if (value == null) {
+            properties.remove(ConfigKeys.OLLAMA_REQUEST_TIMEOUT_MINUTES);
+        } else {
+            properties.setProperty(ConfigKeys.OLLAMA_REQUEST_TIMEOUT_MINUTES, value.toString());
+        }
+        save();
+    }
+
+    public synchronized Integer getHistoryMaxMessages() {
+        return parseInt(ConfigKeys.CHAT_HISTORY_MAX_MESSAGES);
+    }
+
+    public synchronized void setHistoryMaxMessages(Integer value) {
+        if (value == null) {
+            properties.remove(ConfigKeys.CHAT_HISTORY_MAX_MESSAGES);
+        } else {
+            properties.setProperty(ConfigKeys.CHAT_HISTORY_MAX_MESSAGES, value.toString());
+        }
+        save();
+    }
+
+    public synchronized Integer getAttachMaxChars() {
+        return parseInt(ConfigKeys.CHAT_ATTACH_MAX_CHARS);
+    }
+
+    public synchronized void setAttachMaxChars(Integer value) {
+        if (value == null) {
+            properties.remove(ConfigKeys.CHAT_ATTACH_MAX_CHARS);
+        } else {
+            properties.setProperty(ConfigKeys.CHAT_ATTACH_MAX_CHARS, value.toString());
+        }
+        save();
+    }
+
+    private Double parseDouble(String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Double.parseDouble(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Invalid double in user config: {} = '{}' — ignoring", key, value);
+            return null;
+        }
+    }
+
+    private Integer parseInt(String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.isBlank()) return null;
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Invalid integer in user config: {} = '{}' — ignoring", key, value);
+            return null;
+        }
+    }
 }
