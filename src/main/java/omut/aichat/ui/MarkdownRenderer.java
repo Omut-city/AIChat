@@ -56,7 +56,7 @@ public final class MarkdownRenderer {
                 // `inline code` → inline code
                 .replaceAll("`([^`]+)`", "$1")
                 // collapse 3+ blank lines into 2
-                .replaceAll("\\n{3,}", "\\n\\n");
+                .replaceAll("\\n{3,}", "\n\n");
     }
 
     /**
