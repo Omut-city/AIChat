@@ -4,6 +4,9 @@ import omut.aichat.chat.AIChatMessage;
 import omut.aichat.chat.ChatExporter;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
 
 import java.util.Locale;
 
@@ -19,11 +22,39 @@ public final class MarkdownRenderer {
     private final Parser parser = Parser.builder().build();
     private final HtmlRenderer renderer = HtmlRenderer.builder().build();
 
-    /** Renders a Markdown string to an HTML fragment. */
+    /**
+     * Safe subset of HTML that CommonMark produces, plus a few tags
+     * its renderer emits for standard Markdown constructs. Script
+     * tags, event-handler attributes ({@code onerror}, {@code onload}),
+     * and {@code javascript:} URLs are not in the list, so Jsoup drops
+     * them entirely.
+     * <p>
+     * Classes on {@code <code>} and {@code <pre>} are preserved so
+     * highlight.js can pick up {@code language-java} and similar
+     * language hints.
+     */
+    private static final Safelist SAFELIST = Safelist.basicWithImages()
+            .addTags("h1", "h2", "h3", "h4", "h5", "h6", "hr")
+            .addAttributes("code", "class")
+            .addAttributes("pre", "class");
+
+    /**
+     * Renders a Markdown string to an HTML fragment and sanitises the
+     * result. The raw HTML from CommonMark cannot be trusted: answers
+     * from a model may contain {@code <script>} or {@code <img onerror>},
+     * and {@code chat.js} inserts the output with {@code innerHTML},
+     * which executes event handlers.
+     */
     public String renderToHtml(String markdown) {
-        return renderer.render(parser.parse(markdown));
+        String html = renderer.render(parser.parse(markdown));
+        return sanitize(html);
     }
 
+    private static String sanitize(String html) {
+        return Jsoup.clean(html, "",
+                SAFELIST,
+                new Document.OutputSettings().prettyPrint(false));
+    }
     /**
      * Strips the most common Markdown constructs from text so it can be
      * pasted into a plain-text target (email, notes, terminal).

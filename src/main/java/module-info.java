@@ -1,5 +1,6 @@
 module omut.aichat {
     requires org.commonmark;
+    requires org.jsoup;
     requires javafx.web;
     requires javafx.controls;
     requires org.slf4j.simple;
