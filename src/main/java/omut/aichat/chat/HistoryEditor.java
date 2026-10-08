@@ -11,9 +11,12 @@ import java.util.List;
  * directly and never hold a live reference to it. The session
  * decides when to notify listeners; this class only changes state.
  * <p>
- * Not thread-safe on its own — the same rule that governs the
- * session applies: only the JavaFX thread and the single
- * {@code chat-worker} thread touch it, and never concurrently.
+ * Thread-safe. Every method is synchronized on {@code this}, so the
+ * JavaFX thread (reads, edits, cancels) and the single
+ * {@code chat-worker} thread (streaming completions, background
+ * commands) may call in concurrently. {@link #snapshot()} returns
+ * an immutable copy, so iterating over the result is safe even
+ * while the editor is being mutated.
  */
 final class HistoryEditor {
 
@@ -21,27 +24,27 @@ final class HistoryEditor {
 
     // --- Read ---
 
-    List<AIChatMessage> snapshot() {
+    synchronized List<AIChatMessage> snapshot() {
         return List.copyOf(history);
     }
 
-    int size() {
+    synchronized int size() {
         return history.size();
     }
 
-    boolean isEmpty() {
+    synchronized boolean isEmpty() {
         return history.isEmpty();
     }
 
-    AIChatMessage get(int idx) {
+    synchronized AIChatMessage get(int idx) {
         return history.get(idx);
     }
 
-    AIChatMessage first() {
+    synchronized AIChatMessage first() {
         return history.getFirst();
     }
 
-    int indexOf(String id) {
+    synchronized int indexOf(String id) {
         for (int i = 0; i < history.size(); i++) {
             if (history.get(i).id().equals(id)) return i;
         }
@@ -49,7 +52,7 @@ final class HistoryEditor {
     }
 
     /** Index of the most recent USER message, or -1 if there is none. */
-    int lastUserIndex() {
+    synchronized int lastUserIndex() {
         for (int i = history.size() - 1; i >= 0; i--) {
             if (history.get(i).role() == AIChatMessage.Role.USER) return i;
         }
@@ -58,33 +61,33 @@ final class HistoryEditor {
 
     // --- Write ---
 
-    void append(AIChatMessage message) {
+    synchronized void append(AIChatMessage message) {
         history.add(message);
     }
 
-    void prepend(AIChatMessage message) {
+    synchronized void prepend(AIChatMessage message) {
         history.addFirst(message);
     }
 
-    void set(int idx, AIChatMessage message) {
+    synchronized void set(int idx, AIChatMessage message) {
         history.set(idx, message);
     }
 
-    void removeFirst() {
+    synchronized void removeFirst() {
         history.removeFirst();
     }
 
     /** Removes the message at {@code idx} and everything after it. */
-    void cutFrom(int idx) {
+    synchronized void cutFrom(int idx) {
         history.subList(idx, history.size()).clear();
     }
 
     /** Keeps the message at {@code idx}, removes everything after it. */
-    void cutAfter(int idx) {
+    synchronized void cutAfter(int idx) {
         history.subList(idx + 1, history.size()).clear();
     }
 
-    void clear() {
+    synchronized void clear() {
         history.clear();
     }
 }

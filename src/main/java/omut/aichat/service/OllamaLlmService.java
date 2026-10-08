@@ -33,8 +33,8 @@ public class OllamaLlmService implements LlmService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final AppConfig config;
-    private String currentModel;
-    private StreamingChatModel streamingModel;
+    private volatile String currentModel;
+    private volatile StreamingChatModel streamingModel;
 
     public OllamaLlmService(AppConfig config, String initialModel) {
         this.config = config;

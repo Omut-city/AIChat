@@ -6,6 +6,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -329,5 +334,59 @@ class HistoryEditorTest {
 
             assertThat(editor.isEmpty()).isTrue();
         }
+    }
+
+    @Test
+    @DisplayName("Concurrent append and snapshot do not corrupt state")
+    void concurrentAppendAndSnapshot() throws Exception {
+        HistoryEditor editor = new HistoryEditor();
+        int perThread = 5_000;
+        int writers = 2;
+        int readers = 2;
+
+        AtomicReference<Throwable> failure;
+        try (ExecutorService pool = Executors.newFixedThreadPool(writers + readers)) {
+            CountDownLatch start = new CountDownLatch(1);
+            failure = new AtomicReference<>();
+
+            try {
+                for (int t = 0; t < writers; t++) {
+                    final int base = t * perThread;
+                    pool.submit(() -> {
+                        try {
+                            start.await();
+                            for (int i = 0; i < perThread; i++) {
+                                editor.append(user("u" + (base + i)));
+                            }
+                        } catch (Throwable e) {
+                            failure.compareAndSet(null, e);
+                        }
+                    });
+                }
+                for (int t = 0; t < readers; t++) {
+                    pool.submit(() -> {
+                        try {
+                            start.await();
+                            for (int i = 0; i < perThread; i++) {
+                                editor.snapshot();
+                            }
+                        } catch (Throwable e) {
+                            failure.compareAndSet(null, e);
+                        }
+                    });
+                }
+
+                start.countDown();
+                pool.shutdown();
+                assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                pool.shutdownNow();
+            }
+        }
+
+        assertThat(failure.get())
+                .as("concurrent append/snapshot must not throw")
+                .isNull();
+        assertThat(editor.snapshot()).hasSize(writers * perThread);
     }
 }
