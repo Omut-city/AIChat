@@ -3,7 +3,6 @@ package omut.aichat.ui;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import omut.aichat.chat.AIChatMessage;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -135,7 +134,6 @@ class TranscriptJsonTest {
         }
 
         @Test
-        @Disabled("See backlog O.1 — CommonMark does not sanitize raw HTML")
         @DisplayName("Script tags in source are not present as raw HTML")
         void scriptSanitized() throws Exception {
             AIChatMessage msg = AIChatMessage.user("<script>alert(1)</script>");

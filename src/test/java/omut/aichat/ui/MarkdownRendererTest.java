@@ -10,6 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MarkdownRendererTest {
 
+    private final MarkdownRenderer renderer = new MarkdownRenderer();
+
     @Test
     @DisplayName("null → \"\"")
     void nullInput() {
@@ -220,6 +222,85 @@ class MarkdownRendererTest {
                     .contains("первый")
                     .contains("второй")
                     .contains("int x = 1;");
+        }
+    }
+
+    @Nested
+    @DisplayName("HTML sanitization")
+    class Sanitization {
+
+        @Test
+        @DisplayName("script tags are removed")
+        void scriptRemoved() {
+            String html = renderer.renderToHtml("<script>alert(1)</script>");
+
+            assertThat(html).doesNotContain("<script>");
+            assertThat(html).doesNotContain("alert");
+        }
+
+        @Test
+        @DisplayName("img onerror is stripped")
+        void imgOnerrorStripped() {
+            String html = renderer.renderToHtml("<img src=x onerror=\"alert(1)\">");
+
+            assertThat(html).doesNotContain("onerror");
+        }
+
+        @Test
+        @DisplayName("svg onload is stripped")
+        void svgOnloadStripped() {
+            String html = renderer.renderToHtml("<svg onload=\"alert(1)\"></svg>");
+
+            assertThat(html).doesNotContain("onload");
+        }
+
+        @Test
+        @DisplayName("iframe is removed")
+        void iframeRemoved() {
+            String html = renderer.renderToHtml("<iframe src=\"javascript:alert(1)\"></iframe>");
+
+            assertThat(html).doesNotContain("<iframe");
+        }
+
+        @Test
+        @DisplayName("javascript: link is stripped")
+        void javascriptLinkStripped() {
+            String html = renderer.renderToHtml("[click](javascript:alert(1))");
+
+            assertThat(html).doesNotContain("javascript:");
+        }
+
+        @Test
+        @DisplayName("Safe link is kept")
+        void safeLinkKept() {
+            String html = renderer.renderToHtml("[text](https://example.com)");
+
+            assertThat(html).contains("href=\"https://example.com\"");
+        }
+
+        @Test
+        @DisplayName("Bold still renders after sanitization")
+        void boldStillWorks() {
+            String html = renderer.renderToHtml("**bold**");
+
+            assertThat(html).contains("<strong>bold</strong>");
+        }
+
+        @Test
+        @DisplayName("Code block keeps language class for highlight.js")
+        void codeClassPreserved() {
+            String html = renderer.renderToHtml("```java\nint x = 1;\n```");
+
+            assertThat(html).contains("language-java");
+            assertThat(html).contains("int x = 1;");
+        }
+
+        @Test
+        @DisplayName("Heading survives sanitization")
+        void headingPreserved() {
+            String html = renderer.renderToHtml("# Title");
+
+            assertThat(html).contains("<h1>Title</h1>");
         }
     }
 }
