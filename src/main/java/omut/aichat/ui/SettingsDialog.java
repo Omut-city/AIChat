@@ -8,8 +8,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-import java.net.URI;
-
 public class SettingsDialog extends Dialog<String> {
 
     private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
@@ -37,38 +35,19 @@ public class SettingsDialog extends Dialog<String> {
 
         Node okButton = getDialogPane().lookupButton(ButtonType.OK);
         urlField.textProperty().addListener((obs, oldValue, newValue) -> {
-            boolean valid = normalizeBaseUrl(newValue) != null;
+            boolean valid = BaseUrlValidator.normalize(newValue) != null;
             okButton.setDisable(!valid);
             urlField.pseudoClassStateChanged(INVALID, !valid);
         });
 
-        boolean initialValid = normalizeBaseUrl(currentBaseUrl) != null;
+        boolean initialValid = BaseUrlValidator.normalize(currentBaseUrl) != null;
         okButton.setDisable(!initialValid);
         urlField.pseudoClassStateChanged(INVALID, !initialValid);
 
         setResultConverter(button -> {
             if (button != ButtonType.OK) return null;
-            return normalizeBaseUrl(urlField.getText());
+            return BaseUrlValidator.normalize(urlField.getText());
         });
     }
 
-    private String normalizeBaseUrl(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-
-        String url = raw.trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://" + url;
-        }
-
-        try {
-            URI uri = URI.create(url);
-            String host = uri.getHost();
-            if (host == null || host.isBlank()) {
-                return null;
-            }
-            return url;
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
 }
