@@ -15,4 +15,5 @@ public interface ChatListener {
     void onRequestCancelled();
     void onTokensPerSecond(double tps);
     void onToken(String chunk, String fullText);
+    void onNotice(String text, NoticeLevel level);
 }

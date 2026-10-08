@@ -76,6 +76,10 @@ public class ChatDispatcher {
         dispatch(l -> l.onToken(chunk, fullText));
     }
 
+    public void notice(String text, NoticeLevel level) {
+        dispatch(l -> l.onNotice(text, level));
+    }
+
     private void dispatch(Consumer<ChatListener> action) {
         for (ChatListener l : listeners) {
             try {

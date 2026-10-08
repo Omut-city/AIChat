@@ -17,10 +17,7 @@ import javafx.util.Duration;
 // flags a single-type import, though the type itself still works.
 // There is no replacement; JSObject is how we expose the bridge.
 import netscape.javascript.*;
-import omut.aichat.chat.AIChatMessage;
-import omut.aichat.chat.ChatExporter;
-import omut.aichat.chat.ChatListener;
-import omut.aichat.chat.ChatSession;
+import omut.aichat.chat.*;
 import omut.aichat.config.AppConfig;
 import omut.aichat.utils.TimeFormat;
 import org.slf4j.Logger;
@@ -188,6 +185,16 @@ public class ChatView implements ChatListener {
             view.inputField.requestFocus();
             scripts.setBusy(false);
         });
+    }
+
+    @Override
+    public void onNotice(String text, NoticeLevel level) {
+        String cssClass = switch (level) {
+            case INFO -> "notice-info";
+            case SUCCESS -> "notice-success";
+            case ERROR -> "notice-error";
+        };
+        showNotice(text, cssClass);
     }
 
     @Override

@@ -125,7 +125,7 @@ public class ChatSession {
         int lastUserIndex = editor.lastUserIndex();
 
         if (lastUserIndex < 0) {
-            dispatcher.message(AIChatMessage.system("Nothing to regenerate."));
+            dispatcher.notice("Nothing to regenerate.", NoticeLevel.INFO);
             return;
         }
 
@@ -181,7 +181,7 @@ public class ChatSession {
 
     public void switchModel(String modelName) {
         if (modelName == null || modelName.isBlank()) {
-            dispatcher.message(AIChatMessage.system("Invalid model name."));
+            dispatcher.notice("Invalid model name.", NoticeLevel.ERROR);
             return;
         }
         submit(() -> {
@@ -190,7 +190,7 @@ public class ChatSession {
                 config.setSelectedModel(modelName);
                 dispatcher.modelChanged(modelName);
             } catch (Exception e) {
-                dispatcher.message(AIChatMessage.system("Failed to switch model: " + e.getMessage()));
+                dispatcher.notice("Failed to switch model: " + e.getMessage(), NoticeLevel.ERROR);
             }
         });
     }
@@ -202,14 +202,14 @@ public class ChatSession {
     public void attachFile(String fileName, String content) {
         if (fileName == null || fileName.isBlank()) return;
         if (content == null || content.isBlank()) {
-            dispatcher.message(AIChatMessage.system("Attached file is empty: " + fileName));
+            dispatcher.notice("Attached file is empty: " + fileName, NoticeLevel.ERROR);
             return;
         }
 
         int max = config.attachMaxChars();
         if (content.length() > max) {
-            dispatcher.message(AIChatMessage.system(
-                    "File too large: " + content.length() + " chars, limit is " + max));
+            dispatcher.notice(
+                    "File too large: " + content.length() + " chars, limit is " + max, NoticeLevel.ERROR);
             return;
         }
 
@@ -217,7 +217,7 @@ public class ChatSession {
             String text = "[Attached: " + fileName + "]\n\n" + content;
             AIChatMessage attachment = AIChatMessage.system(text);
             editor.append(attachment);
-            dispatcher.message(AIChatMessage.system("Attached: " + fileName));
+            dispatcher.notice("Attached: " + fileName, NoticeLevel.SUCCESS);
         });
     }
 
@@ -229,7 +229,7 @@ public class ChatSession {
                 editor.append(AIChatMessage.system(prompt));
             }
             dispatcher.cleared();
-            dispatcher.message(AIChatMessage.system("Chat cleared."));
+            dispatcher.notice("Chat cleared.", NoticeLevel.INFO);
         });
     }
 
@@ -266,10 +266,10 @@ public class ChatSession {
         submit(() -> {
             try {
                 llmService.setBaseUrl(baseUrl);
-                dispatcher.message(AIChatMessage.system("Base URL set to: " + config.getBaseUrl()));
+                dispatcher.notice("Base URL set to: " + config.getBaseUrl(), NoticeLevel.SUCCESS);
                 dispatcher.status(llmService.isAvailable());
             } catch (Exception e) {
-                dispatcher.message(AIChatMessage.system("Failed to set base URL: " + e.getMessage()));
+                dispatcher.notice("Failed to set base URL: " + e.getMessage(), NoticeLevel.ERROR);
             }
         });
     }
@@ -291,9 +291,9 @@ public class ChatSession {
                         editor.prepend(AIChatMessage.system(updated));
                     }
                 }
-                dispatcher.message(AIChatMessage.system("System prompt updated."));
+                dispatcher.notice("System prompt updated.", NoticeLevel.SUCCESS);
             } catch (Exception e) {
-                dispatcher.message(AIChatMessage.system("Failed to update system prompt: " + e.getMessage()));
+                dispatcher.notice("Failed to update system prompt: " + e.getMessage(), NoticeLevel.ERROR);
             }
         });
     }
