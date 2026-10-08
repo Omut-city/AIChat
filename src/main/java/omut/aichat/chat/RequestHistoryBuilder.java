@@ -7,9 +7,9 @@ import java.util.List;
  * Trims a conversation to fit within a message-count limit before
  * it is sent to the model.
  * <p>
- * The system prompt, when present, is always kept. The rest of the
- * budget is spent on the most recent messages. If the prompt alone
- * fills the budget, no conversation messages are included.
+ * The system prompt, when present, is always kept. The remaining
+ * limit is spent on the most recent messages. If the prompt alone
+ * fills the limit, no conversation messages are included.
  */
 final class RequestHistoryBuilder {
 
