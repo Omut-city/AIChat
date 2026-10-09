@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ChatSession {
+public class ChatSession  implements ChatCommands {
 
     private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
 
@@ -139,6 +139,7 @@ public class ChatSession {
         submitStreamingRequest(token);
     }
 
+    @Override
     public void deleteFrom(String messageId) {
         if (messageId == null || messageId.isBlank()) return;
         if (executor.isShutdown()) return;
@@ -152,6 +153,7 @@ public class ChatSession {
         dispatcher.historyChanged();
     }
 
+    @Override
     public void editUserMessage(String messageId, String newText) {
         if (messageId == null || messageId.isBlank()) return;
         if (newText == null || newText.isBlank()) return;

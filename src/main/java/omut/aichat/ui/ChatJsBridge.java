@@ -1,6 +1,6 @@
 package omut.aichat.ui;
 
-import omut.aichat.chat.ChatSession;
+import omut.aichat.chat.ChatCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,7 +14,7 @@ import java.util.function.Function;
  * FX thread and can touch UI state directly.
  * <p>
  * The bridge holds no state of its own; every method delegates to
- * {@link ChatSession}. The {@code editDialog} function is supplied by
+ * {@link ChatCommands}. The {@code editDialog} function is supplied by
  * {@link ChatView} so the bridge can request user input without
  * knowing about JavaFX dialogs.
  */
@@ -22,11 +22,11 @@ public class ChatJsBridge {
 
     private static final Logger log = LoggerFactory.getLogger(ChatJsBridge.class);
 
-    private final ChatSession session;
+    private final ChatCommands commands;
     private final Function<String, String> editDialog;
 
-    public ChatJsBridge(ChatSession session, Function<String, String> editDialog) {
-        this.session = session;
+    public ChatJsBridge(ChatCommands commands, Function<String, String> editDialog) {
+        this.commands = commands;
         this.editDialog = editDialog;
     }
 
@@ -36,7 +36,7 @@ public class ChatJsBridge {
      */
     public void deleteMessage(String messageId) {
         log.debug("deleteMessage: {}", messageId);
-        session.deleteFrom(messageId);
+        commands.deleteFrom(messageId);
     }
 
     /**
@@ -48,6 +48,6 @@ public class ChatJsBridge {
         log.debug("editUserMessage: {}", messageId);
         String newText = editDialog.apply(messageId);
         if (newText == null || newText.isBlank()) return;
-        session.editUserMessage(messageId, newText);
+        commands.editUserMessage(messageId, newText);
     }
 }
