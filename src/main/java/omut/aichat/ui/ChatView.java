@@ -5,7 +5,12 @@ import javafx.application.HostServices;
 import javafx.application.Platform;
 import javafx.concurrent.Worker;
 import javafx.scene.Parent;
-import javafx.scene.control.*;
+import javafx.scene.control.Toggle;
+import omut.aichat.chat.AIChatMessage;
+import omut.aichat.chat.ChatExporter;
+import omut.aichat.chat.ChatListener;
+import omut.aichat.chat.ChatSession;
+import omut.aichat.chat.NoticeLevel;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
@@ -276,8 +281,9 @@ public class ChatView implements ChatListener {
     private void onSend() {
         String text = view.inputField.getText();
         if (text == null || text.isBlank()) return;
-        view.inputField.clear();
+        if (busy) return;
         session.send(text);
+        view.inputField.clear();
     }
 
     private void updateControls() {

@@ -30,7 +30,11 @@ public class ChatExporter {
                     sb.append(msg.text()).append("\n\n");
                 }
                 case ASSISTANT -> {
-                    sb.append("## AI\n\n");
+                    if (msg.model() != null && !msg.model().isBlank()) {
+                        sb.append("## AI (").append(msg.model()).append(")\n\n");
+                    } else {
+                        sb.append("## AI\n\n");
+                    }
                     if (msg.durationMillis() > 0) {
                         sb.append("_").append(TimeFormat.shortDuration(msg.durationMillis())).append("_\n\n");
                     }

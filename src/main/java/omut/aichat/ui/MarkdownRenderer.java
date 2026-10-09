@@ -82,7 +82,7 @@ public final class MarkdownRenderer {
                 // **bold** and __bold__
                 .replaceAll("\\*\\*(.+?)\\*\\*", "$1")
                 .replaceAll("__(.+?)__", "$1")
-                // *italic* and _italic_ (не трогаем уже обработанное)
+                // *italic* and _italic_ (won't touch already-processed pairs)
                 .replaceAll("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)", "$1")
                 // `inline code` → inline code
                 .replaceAll("`([^`]+)`", "$1")

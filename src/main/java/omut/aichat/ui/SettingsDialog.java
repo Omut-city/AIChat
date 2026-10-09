@@ -117,16 +117,15 @@ public class SettingsDialog extends Dialog<AppSettings> {
      * input in a StringConverter is a source of NPEs and it buys
      * nothing here.
      * <p>
-     * The width is fixed via min/max (not pref), otherwise GridPane
-     * stretches the spinner to the column width and the arrow buttons
-     * collapse to a couple of pixels.
+     * Grows to fill its grid column, with a floor of 120 px so the
+     * arrow buttons stay clickable when the dialog is narrow.
      */
     private static <T> Spinner<T> styledSpinner(SpinnerValueFactory<T> factory) {
         Spinner<T> spinner = new Spinner<>(factory);
         spinner.setEditable(false);
-        spinner.setPrefWidth(160);                       // было 140 — базовый размер
-        spinner.setMinWidth(120);                        // не схлопываться
-        spinner.setMaxWidth(Double.MAX_VALUE);           // растягиваться
+        spinner.setPrefWidth(160);
+        spinner.setMinWidth(120);
+        spinner.setMaxWidth(Double.MAX_VALUE);
         return spinner;
     }
 
