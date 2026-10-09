@@ -84,8 +84,6 @@ public class ChatViewBuilder {
 
         ToolBar toolBar = new ToolBar(
                 modelSelector,
-                new Separator(),
-                statusLabel,
                 toolbarSpacer,
                 copyLastButton,
                 saveButton,
@@ -126,6 +124,7 @@ public class ChatViewBuilder {
 
         HBox statusLine = new HBox(
                 10,
+                statusLabel,
                 lastResponseLabel,
                 speedLabel,
                 statusSpacer,

@@ -126,13 +126,13 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             llmAvailable = available;
             if (available) {
-                view.statusLabel.setText("Status: Ollama is available  |  Model: " + session.currentModel());
+                view.statusLabel.setText("Status: Ollama is available (" + hostLabel() + ")  |  Model: " + session.currentModel());
                 setStatusStyle(true);
                 if (view.modelSelector.getItems().isEmpty()) {
                     session.loadModels();
                 }
             } else {
-                view.statusLabel.setText("Status: Ollama is NOT available");
+                view.statusLabel.setText("Status: Ollama is NOT available (" + hostLabel() + ")");
                 setStatusStyle(false);
             }
             updateControls();
@@ -153,7 +153,7 @@ public class ChatView implements ChatListener {
     @Override
     public void onModelChanged(String modelName) {
         Platform.runLater(() -> {
-            view.statusLabel.setText("Status: Ollama is available  |  Model: " + modelName);
+            view.statusLabel.setText("Status: Ollama is available (" + hostLabel() + ")  |  Model: " + modelName);
             setStatusStyle(true);
         });
     }
@@ -507,5 +507,21 @@ public class ChatView implements ChatListener {
                 "status-available", "status-unavailable", "status-unknown");
         view.statusLabel.getStyleClass().add(
                 available ? "status-available" : "status-unavailable");
+    }
+
+    /**
+     * Host part of the configured Ollama URL, for the status line.
+     * Falls back to the full URL if the host cannot be parsed, and
+     * to "unknown" if the URL is null or blank.
+     */
+    private String hostLabel() {
+        String url = config.getBaseUrl();
+        if (url == null || url.isBlank()) return "unknown";
+        try {
+            String host = java.net.URI.create(url).getHost();
+            return host != null ? host : url;
+        } catch (IllegalArgumentException e) {
+            return url;
+        }
     }
 }
