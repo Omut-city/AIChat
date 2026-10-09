@@ -12,7 +12,7 @@ package omut.aichat.config;
 public class AppConfig {
 
     private final AppDefaults defaults = new AppDefaults();
-    private final UserConfig userConfig = new UserConfig();
+    private final UserConfig userConfig;
 
     private volatile String baseUrl;
     private volatile String systemPrompt;
@@ -22,6 +22,11 @@ public class AppConfig {
     private volatile int attachMaxChars;
 
     public AppConfig() {
+        this(new UserConfig());
+    }
+
+    AppConfig(UserConfig userConfig) {
+        this.userConfig = userConfig;
         this.baseUrl = resolveBaseUrl();
         this.systemPrompt = resolveSystemPrompt();
         this.temperature = resolveTemperature();

@@ -25,7 +25,11 @@ public class UserConfig {
     private final Properties properties = new Properties();
 
     public UserConfig() {
-        this.file = Path.of(System.getProperty("user.home"), CONFIG_DIR, CONFIG_FILE);
+        this(Path.of(System.getProperty("user.home"), CONFIG_DIR, CONFIG_FILE));
+    }
+
+    UserConfig(Path file) {
+        this.file = file;
         load();
     }
 
