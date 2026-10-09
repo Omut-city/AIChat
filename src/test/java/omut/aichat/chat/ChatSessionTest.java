@@ -436,11 +436,11 @@ class ChatSessionTest {
             session.applySettings(s);
             awaitEvent("notice:SUCCESS");
 
-            verify(config).setBaseUrl("http://192.168.1.5:11434");
             verify(config).setTemperature(1.2);
             verify(config).setRequestTimeoutMinutes(10);
             verify(config).setHistoryMaxMessages(30);
             verify(config).setAttachMaxChars(50_000);
+            verify(llm).setBaseUrl("http://192.168.1.5:11434");
             verify(llm).rebuildModel();
             assertThat(listener.lastNotice.get()).isEqualTo("Settings saved.");
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.SUCCESS);

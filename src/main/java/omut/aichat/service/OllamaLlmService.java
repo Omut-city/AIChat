@@ -101,7 +101,6 @@ public class OllamaLlmService implements LlmService {
     @Override
     public void setBaseUrl(String baseUrl) {
         config.setBaseUrl(baseUrl);
-        rebuildModel();
     }
 
     @Override

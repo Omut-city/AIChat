@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ChatSession  implements ChatCommands {
+public class ChatSession implements ChatCommands {
 
     private static final Logger log = LoggerFactory.getLogger(ChatSession.class);
 
@@ -275,11 +275,11 @@ public class ChatSession  implements ChatCommands {
         if (settings == null) return;
         submit(() -> {
             try {
-                config.setBaseUrl(settings.baseUrl());
                 config.setTemperature(settings.temperature());
                 config.setRequestTimeoutMinutes(settings.requestTimeoutMinutes());
                 config.setHistoryMaxMessages(settings.historyMaxMessages());
                 config.setAttachMaxChars(settings.attachMaxChars());
+                llmService.setBaseUrl(settings.baseUrl());
                 llmService.rebuildModel();
                 dispatcher.notice("Settings saved.", NoticeLevel.SUCCESS);
                 dispatcher.status(llmService.isAvailable());

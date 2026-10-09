@@ -22,7 +22,6 @@ import javafx.util.Duration;
 // flags a single-type import, though the type itself still works.
 // There is no replacement; JSObject is how we expose the bridge.
 import netscape.javascript.*;
-import omut.aichat.chat.*;
 import omut.aichat.config.AppConfig;
 import omut.aichat.config.AppSettings;
 import omut.aichat.utils.TimeFormat;
