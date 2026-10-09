@@ -10,6 +10,15 @@ public interface LlmService {
     List<String> listModels();
     void switchModel(String modelName);
     String currentModel();
+    /**
+     * Changes the Ollama base URL and persists it through
+     * {@link omut.aichat.config.AppConfig}.
+     * <p>
+     * Does not rebuild the streaming model. Call
+     * {@link #rebuildModel()} once all settings that feed into the
+     * model — base URL, temperature, request timeout — have been
+     * updated, so the next request uses the new values.
+     */
     void setBaseUrl(String baseUrl);
     void askStreaming(List<AIChatMessage> conversation, StreamingCallback callback);
     /**
