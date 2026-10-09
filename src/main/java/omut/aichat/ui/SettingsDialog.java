@@ -1,15 +1,22 @@
 package omut.aichat.ui;
 
+import javafx.application.Platform;
 import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import omut.aichat.config.AppSettings;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Modal dialog for editing all user-tunable session settings in one
@@ -20,18 +27,32 @@ import omut.aichat.config.AppSettings;
  * cancelled. Validation for base URL happens live (the OK button is
  * disabled while the URL does not parse); numeric fields are bounded
  * by their spinners and cannot go out of range.
+ * <p>
+ * A Test button next to the URL pings Ollama's {@code /api/tags} and
+ * reports the result inline, so a wrong address is caught before OK.
  */
 public class SettingsDialog extends Dialog<AppSettings> {
 
     private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
+    private static final int PING_TIMEOUT_MS = 2000;
 
     public SettingsDialog(AppSettings current, AppSettings defaults) {
         setTitle("Settings");
         setHeaderText("Session settings");
 
         TextField urlField = new TextField(current.baseUrl());
-        GridPane.setHgrow(urlField, Priority.ALWAYS);
+        HBox.setHgrow(urlField, Priority.ALWAYS);
         urlField.setMaxWidth(Double.MAX_VALUE);
+
+        Button testButton = new Button("Test");
+        Label testResult = new Label("");
+        testResult.getStyleClass().add("muted");
+        testResult.setMinWidth(180);
+
+        testButton.setOnAction(e -> runTest(urlField.getText(), testButton, testResult));
+
+        HBox urlBox = new HBox(8, urlField, testButton);
+        HBox.setHgrow(urlField, Priority.ALWAYS);
 
         Spinner<Double> temperatureSpinner = doubleSpinner(
                 0.0, 2.0, current.temperature(), 0.1);
@@ -65,11 +86,12 @@ public class SettingsDialog extends Dialog<AppSettings> {
         fieldCol.setFillWidth(true);
         grid.getColumnConstraints().addAll(labelCol, fieldCol);
 
-        addRow(grid, 0, "Base URL:", urlField);
-        addRow(grid, 1, "Temperature (0.0 – 2.0):", temperatureSpinner);
-        addRow(grid, 2, "Request timeout, minutes:", timeoutSpinner);
-        addRow(grid, 3, "History limit, messages:", historySpinner);
-        addRow(grid, 4, "Attach size limit, characters:", attachSpinner);
+        addRow(grid, 0, "Base URL:", urlBox);
+        addRow(grid, 1, "", testResult);
+        addRow(grid, 2, "Temperature (0.0 – 2.0):", temperatureSpinner);
+        addRow(grid, 3, "Request timeout, minutes:", timeoutSpinner);
+        addRow(grid, 4, "History limit, messages:", historySpinner);
+        addRow(grid, 5, "Attach size limit, characters:", attachSpinner);
 
         VBox content = new VBox(12, grid, resetButton);
         content.setPadding(new Insets(6, 14, 14, 14));
@@ -84,6 +106,7 @@ public class SettingsDialog extends Dialog<AppSettings> {
             boolean valid = BaseUrlValidator.normalize(newValue) != null;
             okButton.setDisable(!valid);
             urlField.pseudoClassStateChanged(INVALID, !valid);
+            testResult.setText("");
         });
 
         boolean initialValid = BaseUrlValidator.normalize(current.baseUrl()) != null;
@@ -102,6 +125,77 @@ public class SettingsDialog extends Dialog<AppSettings> {
                     attachSpinner.getValue()
             );
         });
+    }
+
+    /**
+     * Pings {@code {url}/api/tags} off the FX thread and updates the
+     * result label on the FX thread. The Test button is disabled
+     * while the ping is in flight so a user cannot queue a second one.
+     */
+    private static void runTest(String rawUrl, Button testButton, Label result) {
+        String url = BaseUrlValidator.normalize(rawUrl);
+        if (url == null) {
+            result.setText("Invalid URL");
+            result.getStyleClass().removeAll("test-ok", "test-fail");
+            result.getStyleClass().add("test-fail");
+            return;
+        }
+
+        testButton.setDisable(true);
+        result.setText("Testing...");
+        result.getStyleClass().removeAll("test-ok", "test-fail");
+
+        CompletableFuture
+                .supplyAsync(() -> ping(url))
+                .whenComplete((message, error) -> Platform.runLater(() -> {
+                    testButton.setDisable(false);
+                    if (error != null) {
+                        result.setText("Cannot connect");
+                        result.getStyleClass().removeAll("test-ok", "test-fail");
+                        result.getStyleClass().add("test-fail");
+                    } else if (message == null) {
+                        result.setText("Cannot connect");
+                        result.getStyleClass().removeAll("test-ok", "test-fail");
+                        result.getStyleClass().add("test-fail");
+                    } else {
+                        result.setText(message);
+                        result.getStyleClass().removeAll("test-ok", "test-fail");
+                        result.getStyleClass().add("test-ok");
+                    }
+                }));
+    }
+
+    /**
+     * Returns "Connected (N models)" on success, null on any failure.
+     * Reads only the first line of the response; the model count is
+     * not worth parsing JSON for here.
+     */
+    private static String ping(String baseUrl) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection)
+                    URI.create(baseUrl + "/api/tags").toURL().openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(PING_TIMEOUT_MS);
+            connection.setReadTimeout(PING_TIMEOUT_MS);
+            int code = connection.getResponseCode();
+            if (code != 200) return null;
+
+            byte[] body = connection.getInputStream().readAllBytes();
+            String text = new String(body, java.nio.charset.StandardCharsets.UTF_8);
+            int count = 0;
+            int idx = 0;
+            while ((idx = text.indexOf("\"name\"", idx)) >= 0) {
+                count++;
+                idx += 6;
+            }
+            if (count == 0) return "Connected";
+            return "Connected (" + count + " models)";
+        } catch (IOException | IllegalArgumentException e) {
+            return null;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
     }
 
     private static void addRow(GridPane grid, int row, String label, Node field) {

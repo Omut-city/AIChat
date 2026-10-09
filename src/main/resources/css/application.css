@@ -44,3 +44,11 @@
 .label.muted {
     -fx-text-fill: darkslategray;
 }
+
+.label.test-ok {
+    -fx-text-fill: seagreen;
+}
+
+.label.test-fail {
+    -fx-text-fill: crimson;
+}
