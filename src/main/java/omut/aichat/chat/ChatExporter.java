@@ -51,10 +51,11 @@ public class ChatExporter {
 
     /**
      * Formats a system message as a Markdown blockquote.
-     * Multi-line messages are quoted line by line.
+     * Multi-line messages are quoted line by line. Trailing whitespace
+     * in the input is stripped before quoting, so a trailing newline
+     * does not leave a dangling {@code >} with no content.
      */
     public static String quoteSystem(String text) {
-        return "> " + text.replace("\n", "\n> ").stripTrailing();
+        return "> " + text.stripTrailing().replace("\n", "\n> ");
     }
-
 }
