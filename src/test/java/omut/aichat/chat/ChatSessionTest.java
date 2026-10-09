@@ -79,6 +79,23 @@ class ChatSessionTest {
         throw new AssertionError("worker did not finish in time: " + listener.events);
     }
 
+    /**
+     * Waits until the listener has recorded the named event, up to 2s.
+     * Replaces Thread.sleep in tests that just need to know "the
+     * worker has delivered this signal". Fails with a clear message
+     * listing what was actually seen, so a broken dispatch shows up
+     * as a diagnostic, not as a mysterious timeout.
+     */
+    private void awaitEvent(String name) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (System.nanoTime() < deadline) {
+            if (listener.events.contains(name)) return;
+            Thread.onSpinWait();
+        }
+        throw new AssertionError("event not seen: " + name
+                + "; saw: " + listener.events);
+    }
+
     private static final class RecordingListener implements ChatListener {
         final List<String> events = new ArrayList<>();
         final AtomicReference<AIChatMessage> lastMessage = new AtomicReference<>();
@@ -145,7 +162,7 @@ class ChatSessionTest {
         void available() throws Exception {
             when(llm.isAvailable()).thenReturn(true);
             session.checkAvailability();
-            Thread.sleep(100);
+            awaitEvent("status:true");
             assertThat(listener.lastStatus.get()).isTrue();
         }
 
@@ -154,7 +171,7 @@ class ChatSessionTest {
         void unavailable() throws Exception {
             when(llm.isAvailable()).thenReturn(false);
             session.checkAvailability();
-            Thread.sleep(100);
+            awaitEvent("status:false");
             assertThat(listener.lastStatus.get()).isFalse();
         }
     }
@@ -209,7 +226,9 @@ class ChatSessionTest {
         @DisplayName("Second send while a request is in flight is a no-op")
         void secondSendRejected() throws Exception {
             CountDownLatch blocker = new CountDownLatch(1);
+            CountDownLatch entered = new CountDownLatch(1);
             doAnswer(inv -> {
+                entered.countDown();
                 StreamingCallback cb = inv.getArgument(1);
                 blocker.await();
                 cb.onComplete(new LlmResponse("first", 10L, 1, 1_000_000L));
@@ -217,7 +236,7 @@ class ChatSessionTest {
             }).when(llm).askStreaming(any(), any());
 
             session.send("first");
-            Thread.sleep(50);
+            assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
             session.send("second");
 
             blocker.countDown();
@@ -238,7 +257,9 @@ class ChatSessionTest {
         @DisplayName("Appends cancel note, emits requestCancelled, clears token")
         void cancel() throws Exception {
             CountDownLatch blocker = new CountDownLatch(1);
+            CountDownLatch entered = new CountDownLatch(1);
             doAnswer(inv -> {
+                entered.countDown();
                 StreamingCallback cb = inv.getArgument(1);
                 boolean released = blocker.await(5, TimeUnit.SECONDS);
                 if (!released) {
@@ -248,9 +269,9 @@ class ChatSessionTest {
             }).when(llm).askStreaming(any(), any());
 
             session.send("hi");
-            Thread.sleep(80);
+            assertThat(entered.await(2, TimeUnit.SECONDS)).isTrue();
             session.cancelCurrentRequest();
-            Thread.sleep(80);
+            awaitEvent("requestCancelled");
 
             assertThat(listener.events).contains("requestCancelled");
             assertThat(session.getHistory())
@@ -297,7 +318,7 @@ class ChatSessionTest {
         @DisplayName("Emits a notice when there is no USER message")
         void nothing() throws Exception {
             session.regenerateLast();
-            Thread.sleep(50);
+            awaitEvent("notice:INFO");
             assertThat(listener.lastNotice.get()).isEqualTo("Nothing to regenerate.");
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.INFO);
             verify(llm, never()).askStreaming(any(), any());
@@ -378,7 +399,7 @@ class ChatSessionTest {
         @DisplayName("Delegates to llmService, persists, emits modelChanged")
         void happy() throws Exception {
             session.switchModel("llama3:8b");
-            Thread.sleep(80);
+            awaitEvent("modelChanged:llama3:8b");
             verify(llm).switchModel("llama3:8b");
             verify(config).setSelectedModel("llama3:8b");
             assertThat(listener.events).contains("modelChanged:llama3:8b");
@@ -397,7 +418,7 @@ class ChatSessionTest {
         void exception() throws Exception {
             doThrow(new RuntimeException("boom")).when(llm).switchModel("bad");
             session.switchModel("bad");
-            Thread.sleep(80);
+            awaitEvent("notice:ERROR");
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
             assertThat(listener.lastNotice.get()).contains("Failed to switch model");
         }
@@ -413,7 +434,7 @@ class ChatSessionTest {
             AppSettings s = new AppSettings(
                     "http://192.168.1.5:11434", 1.2, 10, 30, 50_000);
             session.applySettings(s);
-            Thread.sleep(80);
+            awaitEvent("notice:SUCCESS");
 
             verify(config).setBaseUrl("http://192.168.1.5:11434");
             verify(config).setTemperature(1.2);
@@ -442,7 +463,7 @@ class ChatSessionTest {
         void prepend() throws Exception {
             when(config.systemPrompt()).thenReturn("new prompt");
             session.setSystemPrompt("new prompt");
-            Thread.sleep(80);
+            awaitEvent("notice:SUCCESS");
 
             assertThat(session.getHistory()).hasSize(1);
             assertThat(session.getHistory().getFirst().role())
@@ -458,7 +479,7 @@ class ChatSessionTest {
             s.addListener(listener);
             when(config.systemPrompt()).thenReturn("new");
             s.setSystemPrompt("new");
-            Thread.sleep(80);
+            awaitEvent("notice:SUCCESS");
 
             List<AIChatMessage> history = s.getHistory();
             assertThat(history).hasSize(1);
@@ -470,9 +491,10 @@ class ChatSessionTest {
         void remove() throws Exception {
             when(config.systemPrompt()).thenReturn("initial");
             ChatSession s = new ChatSession(llm, config);
+            s.addListener(listener);
             when(config.systemPrompt()).thenReturn("");
             s.setSystemPrompt("   ");
-            Thread.sleep(80);
+            awaitEvent("notice:SUCCESS");
 
             assertThat(s.getHistory()).isEmpty();
         }
@@ -491,10 +513,10 @@ class ChatSessionTest {
 
             completeImmediately("a1", 10L);
             s.send("q1");
-            Thread.sleep(200);
+            awaitEvent("thinkingFinished");
 
             s.clear();
-            Thread.sleep(80);
+            awaitEvent("notice:INFO");
 
             assertThat(s.getHistory()).hasSize(1);
             assertThat(s.getHistory().getFirst().role())
@@ -512,7 +534,7 @@ class ChatSessionTest {
         @DisplayName("Happy path appends a SYSTEM message with content")
         void happy() throws Exception {
             session.attachFile("notes.txt", "hello");
-            Thread.sleep(80);
+            awaitEvent("notice:SUCCESS");
 
             assertThat(session.getHistory()).hasSize(1);
             assertThat(session.getHistory().getFirst().role())
