@@ -55,6 +55,7 @@ public class ChatView implements ChatListener {
     private volatile long lastStreamRenderNanos = 0;
     private boolean busy = false;
     private boolean llmAvailable = false;
+    private boolean suppressServerEvent = false;
 
     public ChatView(
             ChatSession session,
@@ -86,6 +87,13 @@ public class ChatView implements ChatListener {
         view.regenerateButton.setOnAction(_ -> session.regenerateLast());
         view.settingsButton.setOnAction(_ -> onSettings());
         view.refreshModelsMenuItem.setOnAction(_ -> session.loadModels());
+        view.serverSelector.setOnAction(_ -> {
+            if (suppressServerEvent) return;
+            ServerItem item = view.serverSelector.getValue();
+            if (item == null) return;
+            if (item.id().equals(config.activeServerId())) return;
+            session.switchServer(item.id());
+        });
         view.modelSelector.setOnAction(_ -> {
             String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
@@ -115,10 +123,32 @@ public class ChatView implements ChatListener {
         }
 
         reloadTemplate();
+        refreshServerSelector();
 
         Platform.runLater(session::checkAvailability);
         installAccelerators(root);
         return root;
+    }
+
+    // F18: re-reads the server list from config and rebuilds the
+    // ComboBox. Fired at startup and after Settings closes.
+    private void refreshServerSelector() {
+        suppressServerEvent = true;
+        try {
+            List<ServerItem> items = new ArrayList<>();
+            String activeId = config.activeServerId();
+            ServerItem active = null;
+            for (String id : config.serverIds()) {
+                ServerItem item = new ServerItem(id, config.serverName(id));
+                items.add(item);
+                if (id.equals(activeId)) active = item;
+            }
+            view.serverSelector.getItems().setAll(items);
+            view.serverSelector.setValue(active);
+            view.serverSelector.setDisable(items.isEmpty());
+        } finally {
+            suppressServerEvent = false;
+        }
     }
 
     @Override
@@ -296,6 +326,7 @@ public class ChatView implements ChatListener {
         view.copyLastButton.setDisable(!hasAssistant);
         view.regenerateButton.setDisable(locked || !hasAssistant);
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
+        view.serverSelector.setDisable(busy || view.serverSelector.getItems().isEmpty());
     }
 
     private boolean hasAssistantMessage() {
@@ -345,10 +376,11 @@ public class ChatView implements ChatListener {
                 config.defaultHistoryMaxMessages(),
                 config.defaultAttachMaxChars()
         );
-        AppSettings result = ChatDialogs.editSettings(window(), current, defaults);
+        AppSettings result = ChatDialogs.editSettings(window(), current, defaults, config);
         if (result != null) {
             session.applySettings(result);
         }
+        refreshServerSelector();
     }
 
     private void onSave() {
@@ -510,18 +542,24 @@ public class ChatView implements ChatListener {
     }
 
     /**
-     * Host part of the configured Ollama URL, for the status line.
-     * Falls back to the full URL if the host cannot be parsed, and
-     * to "unknown" if the URL is null or blank.
+     * F18: "Name, host" label of the active server for the status line.
+     * Falls back to the raw URL's host if no name is set, and to
+     * "unknown" if the URL is null or blank.
      */
     private String hostLabel() {
-        String url = config.getBaseUrl();
-        if (url == null || url.isBlank()) return "unknown";
+        String id = config.activeServerId();
+        String name = config.serverName(id);
+        String url = config.serverBaseUrl(id);
+        if (url == null || url.isBlank()) return name + ", unknown";
+
+        String host;
         try {
-            String host = java.net.URI.create(url).getHost();
-            return host != null ? host : url;
+            host = java.net.URI.create(url).getHost();
+            if (host == null) host = url;
         } catch (IllegalArgumentException e) {
-            return url;
+            host = url;
         }
+        return name + ", " + host;
     }
+
 }

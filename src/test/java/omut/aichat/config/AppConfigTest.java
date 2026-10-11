@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,7 +39,7 @@ class AppConfigTest {
     class Fresh {
 
         @Test
-        @DisplayName("Values fall through to bundled defaults")
+        @DisplayName("Scalar values fall through to bundled defaults")
         void defaults() {
             AppConfig c = config();
             assertThat(c.getBaseUrl()).isEqualTo(c.defaultBaseUrl());
@@ -47,6 +48,15 @@ class AppConfigTest {
             assertThat(c.historyMaxMessages()).isEqualTo(c.defaultHistoryMaxMessages());
             assertThat(c.attachMaxChars()).isEqualTo(c.defaultAttachMaxChars());
             assertThat(c.systemPrompt()).isEqualTo(c.defaultSystemPrompt());
+        }
+
+        @Test
+        @DisplayName("A single 'local' server is created and activated")
+        void localServerAutoCreated() {
+            AppConfig c = config();
+            assertThat(c.serverIds()).containsExactly(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.serverName(AppConfig.LOCAL_SERVER_ID)).isEqualTo("127.0.0.1");
         }
     }
 
@@ -95,13 +105,22 @@ class AppConfigTest {
         }
 
         @Test
-        @DisplayName("baseUrl")
+        @DisplayName("baseUrl updates the active server's host/port/protocol")
         void baseUrl() throws IOException {
             AppConfig c = config();
             c.setBaseUrl("http://192.168.1.5:11434");
             assertThat(c.getBaseUrl()).isEqualTo("http://192.168.1.5:11434");
-            assertThat(readBack().getProperty(ConfigKeys.OLLAMA_BASE_URL))
-                    .isEqualTo("http://192.168.1.5:11434");
+
+            Properties saved = readBack();
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_HOST_SUFFIX)))
+                    .isEqualTo("192.168.1.5");
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_PORT_SUFFIX)))
+                    .isEqualTo("11434");
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_PROTOCOL_SUFFIX)))
+                    .isEqualTo("http");
         }
 
         @Test
@@ -163,7 +182,7 @@ class AppConfigTest {
     class Reset {
 
         @Test
-        @DisplayName("setBaseUrl(blank) removes the key and reverts to default")
+        @DisplayName("setBaseUrl(blank) resets the active server to bundled defaults")
         void baseUrl() {
             AppConfig c = config();
             c.setBaseUrl("http://custom:1234");
@@ -198,6 +217,317 @@ class AppConfigTest {
             AppConfig c = config();
             assertThat(c.temperature()).isEqualTo(c.defaultTemperature());
             assertThat(c.requestTimeoutMinutes()).isEqualTo(c.defaultRequestTimeoutMinutes());
+        }
+    }
+
+    @Nested
+    @DisplayName("Legacy URL migration")
+    class Migration {
+
+        @Test
+        @DisplayName("legacy ollama.base.url becomes the 'local' server")
+        void legacyUrlBecomesLocal() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_BASE_URL + "=http://10.0.0.5:8080\n");
+
+            AppConfig c = config();
+
+            assertThat(c.serverIds()).containsExactly(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.getBaseUrl()).isEqualTo("http://10.0.0.5:8080");
+
+            Properties saved = readBack();
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_HOST_SUFFIX)))
+                    .isEqualTo("10.0.0.5");
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_PORT_SUFFIX)))
+                    .isEqualTo("8080");
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_PROTOCOL_SUFFIX)))
+                    .isEqualTo("http");
+        }
+
+        @Test
+        @DisplayName("URL without a port gets the default 11434")
+        void defaultPort() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_BASE_URL + "=http://192.168.1.5\n");
+
+            AppConfig c = config();
+            assertThat(c.getBaseUrl()).isEqualTo("http://192.168.1.5:11434");
+        }
+
+        @Test
+        @DisplayName("Migration runs only once; later runs keep the server list")
+        void notRerun() {
+            AppConfig first = config();
+            first.addServer("Home", "10.0.0.10", 11434);
+
+            AppConfig second = new AppConfig(new UserConfig(configFile()));
+            assertThat(second.serverIds()).hasSize(2);
+            assertThat(second.serverIds().get(0)).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("Self-heal")
+    class SelfHeal {
+
+        @Test
+        @DisplayName("Missing 'local' is restored at the head of the list")
+        void missingLocalRestored() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_SERVER_LIST + "=srv-aaaa,srv-bbbb\n"
+                            + ConfigKeys.OLLAMA_ACTIVE_SERVER + "=srv-aaaa\n");
+
+            AppConfig c = config();
+
+            assertThat(c.serverIds()).first().isEqualTo(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.serverIds()).contains("srv-aaaa", "srv-bbbb");
+        }
+
+        @Test
+        @DisplayName("Active pointing at a missing id falls back to 'local'")
+        void brokenActiveReset() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_SERVER_LIST + "=local\n"
+                            + ConfigKeys.OLLAMA_ACTIVE_SERVER + "=srv-gone\n");
+
+            AppConfig c = config();
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+
+        @Test
+        @DisplayName("Missing 'local' fields are filled from bundled defaults")
+        void missingFieldsFilled() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_SERVER_LIST + "=local\n"
+                            + ConfigKeys.serverKey("local", ConfigKeys.SERVER_HOST_SUFFIX)
+                            + "=192.168.1.5\n");
+
+            AppConfig c = config();
+            Properties saved = readBack();
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_NAME_SUFFIX)))
+                    .isNotBlank();
+            assertThat(saved.getProperty(
+                    ConfigKeys.serverKey("local", ConfigKeys.SERVER_PORT_SUFFIX)))
+                    .isEqualTo("11434");
+        }
+    }
+
+    @Nested
+    @DisplayName("addServer")
+    class AddServer {
+
+        @Test
+        @DisplayName("New id has 'srv-' prefix and does not collide")
+        void generatesId() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 11434);
+            assertThat(id).startsWith("srv-");
+            assertThat(c.serverIds()).contains(id);
+            assertThat(c.serverIds()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("Fields are persisted")
+        void persistsFields() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 11434);
+
+            assertThat(c.serverName(id)).isEqualTo("Home");
+            assertThat(c.serverBaseUrl(id)).isEqualTo("http://10.0.0.10:11434");
+        }
+
+        @Test
+        @DisplayName("Adding a server does not change the active one")
+        void activeUnchanged() {
+            AppConfig c = config();
+            c.addServer("Home", "10.0.0.10", 11434);
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateServer")
+    class UpdateServer {
+
+        @Test
+        @DisplayName("Renaming updates the display name only")
+        void rename() {
+            AppConfig c = config();
+            c.updateServer(AppConfig.LOCAL_SERVER_ID, "My Ollama",
+                    "127.0.0.1", 11434);
+            assertThat(c.serverName(AppConfig.LOCAL_SERVER_ID)).isEqualTo("My Ollama");
+        }
+
+        @Test
+        @DisplayName("Changing host/port of the active server updates getBaseUrl()")
+        void updatesActiveBaseUrl() {
+            AppConfig c = config();
+            c.updateServer(AppConfig.LOCAL_SERVER_ID, "Local",
+                    "192.168.1.5", 9000);
+            assertThat(c.getBaseUrl()).isEqualTo("http://192.168.1.5:9000");
+        }
+
+        @Test
+        @DisplayName("Changing a non-active server leaves getBaseUrl() alone")
+        void nonActiveDoesNotAffectBaseUrl() {
+            AppConfig c = config();
+            String home = c.addServer("Home", "10.0.0.10", 11434);
+            c.updateServer(home, "Home", "10.0.0.11", 8080);
+            assertThat(c.getBaseUrl()).isEqualTo(c.defaultBaseUrl());
+        }
+
+        @Test
+        @DisplayName("Unknown id is a no-op")
+        void unknownId() {
+            AppConfig c = config();
+            c.updateServer("srv-nope", "X", "1.2.3.4", 1234);
+            assertThat(c.serverIds()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("removeServer")
+    class RemoveServer {
+
+        @Test
+        @DisplayName("Removes the server and its fields")
+        void removesFields() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 11434);
+            c.removeServer(id);
+
+            assertThat(c.serverIds()).doesNotContain(id);
+            assertThat(c.serverBaseUrl(id)).isNull();
+        }
+
+        @Test
+        @DisplayName("'local' cannot be removed")
+        void localProtected() {
+            AppConfig c = config();
+            c.removeServer(AppConfig.LOCAL_SERVER_ID);
+            assertThat(c.serverIds()).contains(AppConfig.LOCAL_SERVER_ID);
+        }
+
+        @Test
+        @DisplayName("Removing the active server falls back to 'local'")
+        void activeFallback() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 11434);
+            c.setActiveServer(id);
+            assertThat(c.activeServerId()).isEqualTo(id);
+
+            c.removeServer(id);
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("setActiveServer")
+    class SetActive {
+
+        @Test
+        @DisplayName("Switching updates getBaseUrl() to the new server's URL")
+        void switchChangesBaseUrl() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 8080);
+            c.setActiveServer(id);
+
+            assertThat(c.activeServerId()).isEqualTo(id);
+            assertThat(c.getBaseUrl()).isEqualTo("http://10.0.0.10:8080");
+        }
+
+        @Test
+        @DisplayName("Unknown id is a no-op")
+        void unknownId() {
+            AppConfig c = config();
+            c.setActiveServer("srv-nope");
+            assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+
+        @Test
+        @DisplayName("Blank id is a no-op")
+        void blankId() {
+            AppConfig c = config();
+            String id = c.addServer("Home", "10.0.0.10", 8080);
+            c.setActiveServer(id);
+
+            c.setActiveServer("   ");
+            assertThat(c.activeServerId()).isEqualTo(id);
+        }
+    }
+
+    @Nested
+    @DisplayName("serverBaseUrl")
+    class ServerBaseUrl {
+
+        @Test
+        @DisplayName("Unknown id returns null")
+        void unknown() {
+            AppConfig c = config();
+            assertThat(c.serverBaseUrl("srv-nope")).isNull();
+        }
+
+        @Test
+        @DisplayName("Local server URL matches defaultBaseUrl on a fresh config")
+        void localMatchesDefault() {
+            AppConfig c = config();
+            assertThat(c.serverBaseUrl(AppConfig.LOCAL_SERVER_ID))
+                    .isEqualTo(c.defaultBaseUrl());
+        }
+    }
+
+    @Nested
+    @DisplayName("serverName")
+    class ServerName {
+
+        @Test
+        @DisplayName("Unknown id returns the id itself")
+        void unknownId() {
+            AppConfig c = config();
+            assertThat(c.serverName("srv-nope")).isEqualTo("srv-nope");
+        }
+
+        @Test
+        @DisplayName("Configured name wins over id")
+        void configured() {
+            AppConfig c = config();
+            String id = c.addServer("Work", "10.0.0.10", 11434);
+            assertThat(c.serverName(id)).isEqualTo("Work");
+        }
+    }
+
+    @Nested
+    @DisplayName("serverIds order")
+    class Order {
+
+        @Test
+        @DisplayName("Local is always first")
+        void localFirst() {
+            AppConfig c = config();
+            c.addServer("A", "1.1.1.1", 1);
+            c.addServer("B", "2.2.2.2", 2);
+            List<String> ids = c.serverIds();
+            assertThat(ids.get(0)).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+
+        @Test
+        @DisplayName("New servers are appended in insertion order")
+        void insertionOrder() {
+            AppConfig c = config();
+            String a = c.addServer("A", "1.1.1.1", 1);
+            String b = c.addServer("B", "2.2.2.2", 2);
+            assertThat(c.serverIds()).containsExactly(
+                    AppConfig.LOCAL_SERVER_ID, a, b);
         }
     }
 }

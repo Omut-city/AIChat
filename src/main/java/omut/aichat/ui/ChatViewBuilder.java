@@ -29,6 +29,7 @@ public class ChatViewBuilder {
     public final Button promptButton = new Button("Prompt");
     public final Button saveButton = new Button("Save");
     public final Button copyLastButton = new Button("Copy");
+    public final ComboBox<ServerItem> serverSelector = new ComboBox<>();
     public final ComboBox<String> modelSelector = new ComboBox<>();
     public final Label statusLabel = new Label("Status: unknown");
     public final Label typingLabel = new Label("");
@@ -75,6 +76,10 @@ public class ChatViewBuilder {
 
         menuBar.getMenus().addAll(fileMenu, viewMenu, helpMenu);
 
+        serverSelector.setPromptText("Server");
+        serverSelector.setPrefWidth(140);
+        serverSelector.setDisable(true);
+
         modelSelector.setPromptText("Model");
         modelSelector.setDisable(true);
         modelSelector.setPrefWidth(200);
@@ -83,6 +88,7 @@ public class ChatViewBuilder {
         HBox.setHgrow(toolbarSpacer, Priority.ALWAYS);
 
         ToolBar toolBar = new ToolBar(
+                serverSelector,
                 modelSelector,
                 toolbarSpacer,
                 copyLastButton,

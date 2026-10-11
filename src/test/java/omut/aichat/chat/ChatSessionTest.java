@@ -440,7 +440,6 @@ class ChatSessionTest {
             verify(config).setRequestTimeoutMinutes(10);
             verify(config).setHistoryMaxMessages(30);
             verify(config).setAttachMaxChars(50_000);
-            verify(llm).setBaseUrl("http://192.168.1.5:11434");
             verify(llm).rebuildModel();
             assertThat(listener.lastNotice.get()).isEqualTo("Settings saved.");
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.SUCCESS);
@@ -552,6 +551,37 @@ class ChatSessionTest {
             assertThat(session.getHistory()).isEmpty();
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
             assertThat(listener.lastNotice.get()).contains("File too large");
+        }
+    }
+
+    @Nested
+    @DisplayName("switchServer")
+    class SwitchServer {
+
+        @Test
+        @DisplayName("Persists active id, rebuilds model, emits notice + status")
+        void happy() throws Exception {
+            when(config.serverName("srv-abcd1234")).thenReturn("Home");
+            when(llm.isAvailable()).thenReturn(true);
+
+            session.switchServer("srv-abcd1234");
+            awaitEvent("notice:SUCCESS");
+
+            verify(config).setActiveServer("srv-abcd1234");
+            verify(llm).rebuildModel();
+            verify(llm).isAvailable();
+            assertThat(listener.lastNotice.get())
+                    .isEqualTo("Switched to server: Home");
+            assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("Blank id is a no-op")
+        void blank() {
+            session.switchServer("   ");
+            session.switchServer(null);
+            verify(config, never()).setActiveServer(any());
+            verify(llm, never()).rebuildModel();
         }
     }
 }

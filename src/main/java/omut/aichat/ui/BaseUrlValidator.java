@@ -11,6 +11,8 @@ import java.net.URI;
  */
 final class BaseUrlValidator {
 
+    private static final int DEFAULT_PORT = 11434;
+
     private BaseUrlValidator() {}
 
     /**
@@ -34,6 +36,53 @@ final class BaseUrlValidator {
             return url;
         } catch (IllegalArgumentException e) {
             return null;
+        }
+    }
+
+    /**
+     * Splits a URL into protocol, host and port. Missing port defaults
+     * to 11434; missing protocol defaults to {@code http}. Returns
+     * {@code null} for blank or unparseable input.
+     */
+    public static Parts split(String raw) {
+        String normalized = normalize(raw);
+        if (normalized == null) return null;
+
+        try {
+            URI uri = URI.create(normalized);
+            String protocol = uri.getScheme();
+            String host = uri.getHost();
+            if (protocol == null || host == null || host.isBlank()) {
+                return null;
+            }
+            int port = uri.getPort();
+            if (port <= 0) port = DEFAULT_PORT;
+            return new Parts(protocol, host, port);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Protocol, host and port extracted from a base URL.
+     * {@code protocol} is never {@code null}; {@code port} is always
+     * positive.
+     */
+    public record Parts(String protocol, String host, int port) {
+        public Parts {
+            if (protocol == null || protocol.isBlank()) {
+                throw new IllegalArgumentException("protocol must not be blank");
+            }
+            if (host == null || host.isBlank()) {
+                throw new IllegalArgumentException("host must not be blank");
+            }
+            if (port <= 0 || port > 65535) {
+                throw new IllegalArgumentException("port out of range: " + port);
+            }
+        }
+
+        public String toBaseUrl() {
+            return protocol + "://" + host + ":" + port;
         }
     }
 }

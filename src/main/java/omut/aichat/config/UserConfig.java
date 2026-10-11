@@ -8,11 +8,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /**
  * Persistent user settings stored in ~/.aichat/config.properties.
  * Survives application restarts.
+ * <p>
+ * Besides the flat scalar settings, this class is the persistence
+ * backend for the named Ollama servers (F18): a comma-separated
+ * id list, the active id, and per-server fields keyed by
+ * {@code ollama.server.<id>.<field>}. The {@code local} server is
+ * special — see {@link AppConfig} for the invariants.
  */
 public class UserConfig {
 
@@ -71,6 +79,82 @@ public class UserConfig {
             properties.remove(ConfigKeys.OLLAMA_BASE_URL);
         } else {
             properties.setProperty(ConfigKeys.OLLAMA_BASE_URL, baseUrl);
+        }
+        save();
+    }
+
+    /** Comma-separated id list, in display order. Never {@code null}. */
+    public synchronized String getServerList() {
+        String raw = properties.getProperty(ConfigKeys.OLLAMA_SERVER_LIST);
+        return raw == null ? "" : raw;
+    }
+
+    public synchronized void setServerList(String csv) {
+        if (csv == null || csv.isBlank()) {
+            properties.remove(ConfigKeys.OLLAMA_SERVER_LIST);
+        } else {
+            properties.setProperty(ConfigKeys.OLLAMA_SERVER_LIST, csv);
+        }
+        save();
+    }
+
+    /** Active server id, or {@code null} if unset. */
+    public synchronized String getActiveServer() {
+        return properties.getProperty(ConfigKeys.OLLAMA_ACTIVE_SERVER);
+    }
+
+    public synchronized void setActiveServer(String serverId) {
+        if (serverId == null || serverId.isBlank()) {
+            properties.remove(ConfigKeys.OLLAMA_ACTIVE_SERVER);
+        } else {
+            properties.setProperty(ConfigKeys.OLLAMA_ACTIVE_SERVER, serverId);
+        }
+        save();
+    }
+
+    /** One field of one server, or {@code null} if unset. */
+    public synchronized String getServerField(String serverId, String fieldSuffix) {
+        if (serverId == null || fieldSuffix == null) return null;
+        return properties.getProperty(
+                ConfigKeys.serverKey(serverId, fieldSuffix));
+    }
+
+    /**
+     * Writes one field of one server. A {@code null} or blank value
+     * removes the key entirely — servers are expected to be complete
+     * or absent, not half-populated.
+     */
+    public synchronized void setServerField(
+            String serverId, String fieldSuffix, String value
+    ) {
+        if (serverId == null || fieldSuffix == null) return;
+        String key = ConfigKeys.serverKey(serverId, fieldSuffix);
+        if (value == null || value.isBlank()) {
+            properties.remove(key);
+        } else {
+            properties.setProperty(key, value);
+        }
+        save();
+    }
+
+    /**
+     * Removes every property belonging to the given server id, plus
+     * its entry in the list. Used by "Remove server" in Settings.
+     */
+    public synchronized void removeServer(String serverId) {
+        if (serverId == null || serverId.isBlank()) return;
+
+        properties.remove(ConfigKeys.serverKey(serverId, ConfigKeys.SERVER_NAME_SUFFIX));
+        properties.remove(ConfigKeys.serverKey(serverId, ConfigKeys.SERVER_PROTOCOL_SUFFIX));
+        properties.remove(ConfigKeys.serverKey(serverId, ConfigKeys.SERVER_HOST_SUFFIX));
+        properties.remove(ConfigKeys.serverKey(serverId, ConfigKeys.SERVER_PORT_SUFFIX));
+
+        List<String> ids = splitCsv(getServerList());
+        ids.remove(serverId);
+        setServerList(String.join(",", ids));
+
+        if (serverId.equals(getActiveServer())) {
+            setActiveServer(null);
         }
         save();
     }
@@ -186,5 +270,15 @@ public class UserConfig {
             log.warn("Invalid integer in user config: {} = '{}' — ignoring", key, value);
             return null;
         }
+    }
+
+    private static List<String> splitCsv(String csv) {
+        List<String> out = new ArrayList<>();
+        if (csv == null || csv.isBlank()) return out;
+        for (String token : csv.split(",")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) out.add(trimmed);
+        }
+        return out;
     }
 }

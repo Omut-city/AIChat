@@ -5,6 +5,13 @@ package omut.aichat.config;
  * Settings dialog. Carries validated values only — the compact
  * constructor rejects out-of-range input, so callers can rely on
  * every field being usable without further checks.
+ * <p>
+ * The {@code baseUrl} field mirrors the active server's derived URL.
+ * It is kept for compatibility with existing tests and to give the
+ * Settings dialog something concrete to display; the authoritative
+ * source of connection data is the named-server model in
+ * {@link AppConfig}. When the active server changes, this field is
+ * recomputed from it.
  */
 public record AppSettings(
         String baseUrl,

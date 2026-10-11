@@ -4,7 +4,7 @@ package omut.aichat.config;
  * Property keys used by both {@link AppConfig} (bundled defaults,
  * read-only) and {@link UserConfig} (persisted user overrides).
  * <p>
- * The three keys shared between the two files must stay in sync:
+ * The keys shared between the two files must stay in sync:
  * {@code ollama.base.url}, {@code chat.system.prompt}, {@code app.theme}.
  * Keep them here so a typo cannot silently decouple them.
  */
@@ -16,6 +16,11 @@ public final class ConfigKeys {
     public static final String OLLAMA_BASE_URL = "ollama.base.url";
     public static final String OLLAMA_DEFAULT_MODEL = "ollama.default.model";
     public static final String OLLAMA_SELECTED_MODEL = "ollama.selected.model";
+
+    // Named Ollama servers
+    public static final String OLLAMA_SERVER_LIST = "ollama.server.list";
+    public static final String OLLAMA_ACTIVE_SERVER = "ollama.active.server";
+    public static final String OLLAMA_SERVER_PREFIX = "ollama.server.";
 
     // LLM request
     public static final String OLLAMA_REQUEST_TIMEOUT_MINUTES = "ollama.request.timeout.minutes";
@@ -38,4 +43,18 @@ public final class ConfigKeys {
 
     // Syntax highlighting
     public static final String HIGHLIGHT_JS_PATH = "highlight.js.path";
+
+    /** Suffix for the {@code name} field of a named server. */
+    public static final String SERVER_NAME_SUFFIX = ".name";
+    /** Suffix for the {@code protocol} field of a named server. */
+    public static final String SERVER_PROTOCOL_SUFFIX = ".protocol";
+    /** Suffix for the {@code host} field of a named server. */
+    public static final String SERVER_HOST_SUFFIX = ".host";
+    /** Suffix for the {@code port} field of a named server. */
+    public static final String SERVER_PORT_SUFFIX = ".port";
+
+    /** Builds the full property key for one field of one named server. */
+    public static String serverKey(String serverId, String fieldSuffix) {
+        return OLLAMA_SERVER_PREFIX + serverId + fieldSuffix;
+    }
 }

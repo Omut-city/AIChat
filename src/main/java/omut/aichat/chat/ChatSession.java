@@ -23,10 +23,7 @@ public class ChatSession implements ChatCommands {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             r -> new Thread(r, "chat-worker"));
 
-    public ChatSession(
-            LlmService llmService,
-            AppConfig config
-    ) {
+    public ChatSession(LlmService llmService, AppConfig config) {
         this.llmService = llmService;
         this.config = config;
         String prompt = config.systemPrompt();
@@ -270,6 +267,10 @@ public class ChatSession implements ChatCommands {
      * persists each value through {@link AppConfig}, then rebuilds the
      * streaming model so temperature and timeout changes take effect
      * without restart.
+     * <p>
+     * Base URL is intentionally not part of this path. It belongs to
+     * the active named server and is changed through
+     * {@link #switchServer(String)} or the Settings → Servers block.
      */
     public void applySettings(AppSettings settings) {
         if (settings == null) return;
@@ -279,12 +280,33 @@ public class ChatSession implements ChatCommands {
                 config.setRequestTimeoutMinutes(settings.requestTimeoutMinutes());
                 config.setHistoryMaxMessages(settings.historyMaxMessages());
                 config.setAttachMaxChars(settings.attachMaxChars());
-                llmService.setBaseUrl(settings.baseUrl());
                 llmService.rebuildModel();
                 dispatcher.notice("Settings saved.", NoticeLevel.SUCCESS);
                 dispatcher.status(llmService.isAvailable());
             } catch (Exception e) {
                 dispatcher.notice("Failed to apply settings: " + e.getMessage(),
+                        NoticeLevel.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Switches to another named Ollama server, rebuilds the streaming
+     * model against its URL, and re-checks availability. The active
+     * server is persisted through {@link AppConfig}.
+     */
+    public void switchServer(String serverId) {
+        if (serverId == null || serverId.isBlank()) return;
+        submit(() -> {
+            try {
+                config.setActiveServer(serverId);
+                llmService.rebuildModel();
+                dispatcher.notice(
+                        "Switched to server: " + config.serverName(serverId),
+                        NoticeLevel.SUCCESS);
+                dispatcher.status(llmService.isAvailable());
+            } catch (Exception e) {
+                dispatcher.notice("Failed to switch server: " + e.getMessage(),
                         NoticeLevel.ERROR);
             }
         });

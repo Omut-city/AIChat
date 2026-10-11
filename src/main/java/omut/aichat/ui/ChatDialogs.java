@@ -6,6 +6,7 @@ import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
 import javafx.stage.Window;
+import omut.aichat.config.AppConfig;
 import omut.aichat.config.AppSettings;
 
 /**
@@ -44,9 +45,28 @@ public final class ChatDialogs {
     public static AppSettings editSettings(
             Window owner,
             AppSettings current,
-            AppSettings defaults
+            AppSettings defaults,
+            AppConfig config
     ) {
-        SettingsDialog dialog = new SettingsDialog(current, defaults);
+        SettingsDialog dialog = new SettingsDialog(current, defaults, config);
+        dialog.initOwner(owner);
+        return dialog.showAndWait().orElse(null);
+    }
+
+    /**
+     * Returns the edited server fields, or {@code null} if cancelled.
+     *
+     * @param title      window title, e.g. "Add server"
+     * @param headerText header shown under the title bar
+     * @param initial    values to pre-fill, or {@code null} for a new server
+     */
+    public static ServerEditDialog.Result editServer(
+            Window owner,
+            String title,
+            String headerText,
+            ServerEditDialog.Result initial
+    ) {
+        ServerEditDialog dialog = new ServerEditDialog(title, headerText, initial);
         dialog.initOwner(owner);
         return dialog.showAndWait().orElse(null);
     }

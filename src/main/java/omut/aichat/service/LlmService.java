@@ -11,8 +11,10 @@ public interface LlmService {
     void switchModel(String modelName);
     String currentModel();
     /**
-     * Changes the Ollama base URL and persists it through
-     * {@link omut.aichat.config.AppConfig}.
+     * Sets the URL of the <i>active</i> Ollama server and persists it
+     * through {@link omut.aichat.config.AppConfig}. Other servers are
+     * untouched. Blank input resets the active server's host/port to
+     * bundled defaults.
      * <p>
      * Does not rebuild the streaming model. Call
      * {@link #rebuildModel()} once all settings that feed into the
