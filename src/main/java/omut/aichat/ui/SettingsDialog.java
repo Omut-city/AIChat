@@ -13,24 +13,6 @@ import javafx.scene.layout.VBox;
 import omut.aichat.config.AppConfig;
 import omut.aichat.config.AppSettings;
 
-import java.util.List;
-
-/**
- * Modal dialog for editing all user-tunable session settings in one
- * place: sampling temperature, request timeout, history depth, and
- * maximum attachment size — plus the list of named Ollama servers.
- * <p>
- * Returns an {@link AppSettings} snapshot on OK, or {@code null} if
- * cancelled. Numeric fields are bounded by their spinners and cannot
- * go out of range.
- * <p>
- * The Base URL is deliberately not editable here: connection data
- * belongs to the named-server model, and server CRUD goes through
- * {@link ServerEditDialog}. This dialog only lets the user pick the
- * active server from the existing list. The returned
- * {@link AppSettings#baseUrl()} mirrors the active server's derived
- * URL so downstream code that still reads the field keeps working.
- */
 public class SettingsDialog extends Dialog<AppSettings> {
 
     private final AppConfig config;
@@ -55,32 +37,58 @@ public class SettingsDialog extends Dialog<AppSettings> {
         HBox.setHgrow(serverCombo, Priority.ALWAYS);
         populateServers(serverCombo);
 
-        Button addButton = new Button("Add");
-        Button editButton = new Button("Edit");
-        Button removeButton = new Button("Remove");
+        Button addServerButton = new Button("Add");
+        Button editServerButton = new Button("Edit");
+        Button removeServerButton = new Button("Remove");
 
-        addButton.setOnAction(e -> onAddServer(serverCombo));
-        editButton.setOnAction(e -> onRenameServer(serverCombo));
-        removeButton.setOnAction(e -> onRemoveServer(serverCombo));
+        addServerButton.setOnAction(e -> onAddServer(serverCombo));
+        editServerButton.setOnAction(e -> onEditServer(serverCombo));
+        removeServerButton.setOnAction(e -> onRemoveServer(serverCombo));
 
         serverCombo.valueProperty().addListener((_, _, sel) -> {
             boolean isLocal = sel != null && AppConfig.LOCAL_SERVER_ID.equals(sel.id());
-            removeButton.setDisable(isLocal || sel == null);
-            editButton.setDisable(sel == null);
+            removeServerButton.setDisable(isLocal || sel == null);
+            editServerButton.setDisable(sel == null);
         });
         if (serverCombo.getValue() != null) {
             boolean isLocal = AppConfig.LOCAL_SERVER_ID.equals(serverCombo.getValue().id());
-            removeButton.setDisable(isLocal);
+            removeServerButton.setDisable(isLocal);
         }
 
-        HBox comboRow = new HBox(serverCombo);
-        comboRow.setAlignment(Pos.CENTER_LEFT);
-
-        HBox buttonRow = new HBox(8, addButton, editButton, removeButton);
-        buttonRow.setAlignment(Pos.CENTER_LEFT);
-
-        VBox serverBox = new VBox(6, comboRow, buttonRow);
+        VBox serverBox = new VBox(6,
+                new HBox(serverCombo),
+                new HBox(8, addServerButton, editServerButton, removeServerButton));
         serverBox.setAlignment(Pos.CENTER_LEFT);
+
+        ComboBox<PromptItem> promptCombo = new ComboBox<>();
+        promptCombo.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(promptCombo, Priority.ALWAYS);
+        populatePrompts(promptCombo);
+
+        Button addPromptButton = new Button("Add");
+        Button editPromptButton = new Button("Edit");
+        Button removePromptButton = new Button("Remove");
+
+        addPromptButton.setOnAction(e -> onAddPrompt(promptCombo));
+        editPromptButton.setOnAction(e -> onEditPrompt(promptCombo));
+        removePromptButton.setOnAction(e -> onRemovePrompt(promptCombo));
+
+        promptCombo.valueProperty().addListener((_, _, sel) -> {
+            boolean isDefault = sel != null
+                    && AppConfig.DEFAULT_PROMPT_ID.equals(sel.id());
+            removePromptButton.setDisable(isDefault || sel == null);
+            editPromptButton.setDisable(sel == null);
+        });
+        if (promptCombo.getValue() != null) {
+            boolean isDefault = AppConfig.DEFAULT_PROMPT_ID.equals(
+                    promptCombo.getValue().id());
+            removePromptButton.setDisable(isDefault);
+        }
+
+        VBox promptBox = new VBox(6,
+                new HBox(promptCombo),
+                new HBox(8, addPromptButton, editPromptButton, removePromptButton));
+        promptBox.setAlignment(Pos.CENTER_LEFT);
 
         Button resetButton = new Button("Reset to defaults");
         resetButton.setOnAction(e -> {
@@ -104,19 +112,17 @@ public class SettingsDialog extends Dialog<AppSettings> {
         fieldCol.setFillWidth(true);
         grid.getColumnConstraints().addAll(labelCol, fieldCol);
 
-        addRow(grid, 0, "Active server:", serverBox);
-        addRow(grid, 1, "Temperature (0.0 – 2.0):", temperatureSpinner);
-        addRow(grid, 2, "Request timeout, minutes:", timeoutSpinner);
-        addRow(grid, 3, "History limit, messages:", historySpinner);
-        addRow(grid, 4, "Attach size limit, characters:", attachSpinner);
+        addRow(grid, 0, "Active prompt:", promptBox);
+        addRow(grid, 1, "Active server:", serverBox);
+        addRow(grid, 2, "Temperature (0.0 – 2.0):", temperatureSpinner);
+        addRow(grid, 3, "Request timeout, minutes:", timeoutSpinner);
+        addRow(grid, 4, "History limit, messages:", historySpinner);
+        addRow(grid, 5, "Attach size limit, characters:", attachSpinner);
 
-        HBox resetRow = new HBox(resetButton);
-        resetRow.setAlignment(Pos.CENTER_LEFT);
-
-        VBox content = new VBox(12, grid, resetRow);
+        VBox content = new VBox(12, grid, resetButton);
         content.setPadding(new Insets(6, 14, 14, 14));
         content.setAlignment(Pos.CENTER);
-        content.setPrefWidth(480);
+        content.setPrefWidth(520);
 
         getDialogPane().setContent(content);
         getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -124,9 +130,13 @@ public class SettingsDialog extends Dialog<AppSettings> {
         setResultConverter(button -> {
             if (button != ButtonType.OK) return null;
 
-            ServerItem selected = serverCombo.getValue();
-            if (selected != null) {
-                config.setActiveServer(selected.id());
+            ServerItem selectedServer = serverCombo.getValue();
+            if (selectedServer != null) {
+                config.setActiveServer(selectedServer.id());
+            }
+            PromptItem selectedPrompt = promptCombo.getValue();
+            if (selectedPrompt != null) {
+                config.setActivePrompt(selectedPrompt.id());
             }
             return new AppSettings(
                     config.getBaseUrl(),
@@ -138,7 +148,7 @@ public class SettingsDialog extends Dialog<AppSettings> {
         });
     }
 
-     private void onAddServer(ComboBox<ServerItem> combo) {
+    private void onAddServer(ComboBox<ServerItem> combo) {
         ServerEditDialog.Result result = ChatDialogs.editServer(
                 getOwner(),
                 "Add server",
@@ -147,10 +157,10 @@ public class SettingsDialog extends Dialog<AppSettings> {
         if (result == null) return;
         String newId = config.addServer(result.name(), result.host(), result.port());
         populateServers(combo);
-        selectById(combo, newId);
+        selectServerById(combo, newId);
     }
 
-    private void onRenameServer(ComboBox<ServerItem> combo) {
+    private void onEditServer(ComboBox<ServerItem> combo) {
         ServerItem sel = combo.getValue();
         if (sel == null) return;
 
@@ -167,7 +177,7 @@ public class SettingsDialog extends Dialog<AppSettings> {
 
         config.updateServer(sel.id(), result.name(), result.host(), result.port());
         populateServers(combo);
-        selectById(combo, sel.id());
+        selectServerById(combo, sel.id());
     }
 
     private void onRemoveServer(ComboBox<ServerItem> combo) {
@@ -184,7 +194,7 @@ public class SettingsDialog extends Dialog<AppSettings> {
 
         config.removeServer(sel.id());
         populateServers(combo);
-        selectById(combo, config.activeServerId());
+        selectServerById(combo, config.activeServerId());
     }
 
     private void populateServers(ComboBox<ServerItem> combo) {
@@ -192,11 +202,77 @@ public class SettingsDialog extends Dialog<AppSettings> {
         for (String id : config.serverIds()) {
             combo.getItems().add(new ServerItem(id, config.serverName(id)));
         }
-        selectById(combo, config.activeServerId());
+        selectServerById(combo, config.activeServerId());
     }
 
-    private void selectById(ComboBox<ServerItem> combo, String id) {
+    private void selectServerById(ComboBox<ServerItem> combo, String id) {
         for (ServerItem item : combo.getItems()) {
+            if (item.id().equals(id)) {
+                combo.setValue(item);
+                return;
+            }
+        }
+    }
+
+    private void onAddPrompt(ComboBox<PromptItem> combo) {
+        PromptEditDialog.Result result = ChatDialogs.editPrompt(
+                getOwner(),
+                "Add prompt",
+                "New prompt",
+                null);
+        if (result == null) return;
+        String newId = config.addPrompt(result.name(), result.text());
+        populatePrompts(combo);
+        selectPromptById(combo, newId);
+    }
+
+    private void onEditPrompt(ComboBox<PromptItem> combo) {
+        PromptItem sel = combo.getValue();
+        if (sel == null) return;
+
+        String currentName = config.promptName(sel.id());
+        String currentText = config.promptText(sel.id());
+        if (currentText == null) currentText = "";
+
+        PromptEditDialog.Result result = ChatDialogs.editPrompt(
+                getOwner(),
+                "Edit prompt",
+                "Edit '" + currentName + "'",
+                new PromptEditDialog.Result(currentName, currentText));
+        if (result == null) return;
+
+        config.updatePrompt(sel.id(), result.name(), result.text());
+        populatePrompts(combo);
+        selectPromptById(combo, sel.id());
+    }
+
+    private void onRemovePrompt(ComboBox<PromptItem> combo) {
+        PromptItem sel = combo.getValue();
+        if (sel == null) return;
+        if (AppConfig.DEFAULT_PROMPT_ID.equals(sel.id())) return;
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Remove prompt");
+        confirm.setHeaderText("Remove '" + config.promptName(sel.id()) + "'?");
+        confirm.initOwner(getOwner());
+
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        config.removePrompt(sel.id());
+        populatePrompts(combo);
+        selectPromptById(combo, config.activePromptId());
+    }
+
+    private void populatePrompts(ComboBox<PromptItem> combo) {
+        combo.getItems().clear();
+        for (String id : config.promptIds()) {
+            combo.getItems().add(new PromptItem(id, config.promptName(id)));
+        }
+        selectPromptById(combo, config.activePromptId());
+    }
+
+    private void selectPromptById(ComboBox<PromptItem> combo, String id) {
+        for (PromptItem item : combo.getItems()) {
             if (item.id().equals(id)) {
                 combo.setValue(item);
                 return;
@@ -248,16 +324,5 @@ public class SettingsDialog extends Dialog<AppSettings> {
     ) {
         return styledSpinner(new SpinnerValueFactory.IntegerSpinnerValueFactory(
                 min, max, initial, step));
-    }
-
-    /**
-     * One row in the server ComboBox. {@code id} is what
-     * {@link AppConfig} uses; {@code name} is what the user sees.
-     */
-    private record ServerItem(String id, String name) {
-        @Override
-        public String toString() {
-            return name;
-        }
     }
 }

@@ -56,6 +56,7 @@ public class ChatView implements ChatListener {
     private boolean busy = false;
     private boolean llmAvailable = false;
     private boolean suppressServerEvent = false;
+    private boolean suppressPromptEvent = false;
 
     public ChatView(
             ChatSession session,
@@ -86,6 +87,15 @@ public class ChatView implements ChatListener {
         view.regenerateButton.setOnAction(_ -> session.regenerateLast());
         view.settingsButton.setOnAction(_ -> onSettings());
         view.refreshModelsMenuItem.setOnAction(_ -> session.loadModels());
+
+        view.promptSelector.setOnAction(_ -> {
+            if (suppressPromptEvent) return;
+            PromptItem item = view.promptSelector.getValue();
+            if (item == null) return;
+            if (item.id().equals(config.activePromptId())) return;
+            session.switchPrompt(item.id());
+        });
+
         view.serverSelector.setOnAction(_ -> {
             if (suppressServerEvent) return;
             ServerItem item = view.serverSelector.getValue();
@@ -93,12 +103,14 @@ public class ChatView implements ChatListener {
             if (item.id().equals(config.activeServerId())) return;
             session.switchServer(item.id());
         });
+
         view.modelSelector.setOnAction(_ -> {
             String selected = view.modelSelector.getValue();
             if (selected != null && !selected.equals(session.currentModel())) {
                 session.switchModel(selected);
             }
         });
+
         view.chatView.getEngine().getLoadWorker().stateProperty().addListener(
                 (_, _, newState) -> {
                     if (newState == Worker.State.SUCCEEDED) {
@@ -122,6 +134,7 @@ public class ChatView implements ChatListener {
         }
 
         reloadTemplate();
+        refreshPromptSelector();
         refreshServerSelector();
 
         Platform.runLater(session::checkAvailability);
@@ -129,8 +142,25 @@ public class ChatView implements ChatListener {
         return root;
     }
 
-    // F18: re-reads the server list from config and rebuilds the
-    // ComboBox. Fired at startup and after Settings closes.
+    private void refreshPromptSelector() {
+        suppressPromptEvent = true;
+        try {
+            List<PromptItem> items = new ArrayList<>();
+            String activeId = config.activePromptId();
+            PromptItem active = null;
+            for (String id : config.promptIds()) {
+                PromptItem item = new PromptItem(id, config.promptName(id));
+                items.add(item);
+                if (id.equals(activeId)) active = item;
+            }
+            view.promptSelector.getItems().setAll(items);
+            view.promptSelector.setValue(active);
+            view.promptSelector.setDisable(items.isEmpty());
+        } finally {
+            suppressPromptEvent = false;
+        }
+    }
+
     private void refreshServerSelector() {
         suppressServerEvent = true;
         try {
@@ -326,6 +356,7 @@ public class ChatView implements ChatListener {
         view.regenerateButton.setDisable(locked || !hasAssistant);
         view.modelSelector.setDisable(locked || view.modelSelector.getItems().isEmpty());
         view.serverSelector.setDisable(busy || view.serverSelector.getItems().isEmpty());
+        view.promptSelector.setDisable(busy || view.promptSelector.getItems().isEmpty());
     }
 
     private boolean hasAssistantMessage() {
@@ -371,6 +402,7 @@ public class ChatView implements ChatListener {
         if (result != null) {
             session.applySettings(result);
         }
+        refreshPromptSelector();
         refreshServerSelector();
     }
 
@@ -453,23 +485,11 @@ public class ChatView implements ChatListener {
         });
     }
 
-    /**
-     * Hands the current history to chat.js, which rebuilds the
-     * transcript DOM. Does not reload the page — the JS bridge stays
-     * alive across the update.
-     */
     private void renderTranscript() {
         String json = TranscriptJson.toJson(session.getHistory(), markdown);
         scripts.renderTranscript(json);
     }
 
-    /**
-     * Reloads the HTML template from scratch with the current theme.
-     * Used at startup, on theme change, and on clear — situations
-     * where the {@code <body class>} or the page itself must be
-     * rebuilt. The load listener then calls {@link #renderTranscript}
-     * to repopulate the empty body.
-     */
     private void reloadTemplate() {
         view.chatView.getEngine().loadContent(
                 assets.wrapInHtml("", currentTheme(), config)
@@ -480,12 +500,6 @@ public class ChatView implements ChatListener {
         ChatDialogs.showAbout(window(), hostServices);
     }
 
-    /**
-     * Exposes {@link ChatJsBridge} to the loaded document as
-     * {@code window.javaBridge}. Called after every successful page load —
-     * WebView creates a fresh JavaScript context on each loadContent, so
-     * the bridge must be re-registered each time.
-     */
     @SuppressWarnings("removal")
     private void registerJsBridge() {
         try {
@@ -532,11 +546,6 @@ public class ChatView implements ChatListener {
                 available ? "status-available" : "status-unavailable");
     }
 
-    /**
-     * F18: "Name, host" label of the active server for the status line.
-     * Falls back to the raw URL's host if no name is set, and to
-     * "unknown" if the URL is null or blank.
-     */
     private String hostLabel() {
         String id = config.activeServerId();
         String name = config.serverName(id);
@@ -552,5 +561,4 @@ public class ChatView implements ChatListener {
         }
         return name + ", " + host;
     }
-
 }
