@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Facade over bundled defaults ({@link AppDefaults}) and persisted
@@ -17,21 +17,30 @@ import java.util.Objects;
  * reads {@code application.properties} belongs to AppDefaults;
  * anything that only persists user settings belongs to UserConfig.
  * <p>
- * Connection data is modelled as a list of named Ollama servers.
- * Exactly one of them is active at any time, and {@link #getBaseUrl()}
- * derives the flat URL from it. The server with id {@code "local"} is
- * mandatory: it is always present in the list and cannot be removed.
- * If the persisted list is empty or missing {@code "local"}, it is
- * re-created from the legacy {@code ollama.base.url} property (or from
- * bundled defaults). If the persisted {@code active.server} points at
- * a server id that no longer exists, the active server falls back to
- * {@code "local"}.
+ * Two collections are modelled on top of the flat storage, both with
+ * the same shape — a list of named items, one active, and one item
+ * that cannot be removed:
+ * <ul>
+ *   <li><b>Named Ollama servers (F18).</b> {@link #getBaseUrl()} is
+ *       derived from the active server. The {@code local} server is
+ *       mandatory: re-created from the legacy {@code ollama.base.url}
+ *       on first run, restored on startup if missing, and never
+ *       removable. The persisted {@code active.server} falls back to
+ *       {@code local} when it points at a removed id.</li>
+ *   <li><b>Named prompts (F13).</b> {@link #systemPrompt()} returns
+ *       the active prompt's text. The {@code default} prompt is
+ *       mandatory: re-created from the legacy {@code chat.system.prompt}
+ *       on first run, restored on startup if missing, and never
+ *       removable. The persisted {@code active.prompt} falls back to
+ *       {@code default} when it points at a removed id.</li>
+ * </ul>
  */
 public class AppConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
 
     public static final String LOCAL_SERVER_ID = "local";
+    public static final String DEFAULT_PROMPT_ID = "default";
 
     private static final String DEFAULT_PROTOCOL = "http";
 
@@ -53,8 +62,10 @@ public class AppConfig {
         this.userConfig = userConfig;
         migrateLegacyBaseUrlIfNeeded();
         ensureLocalServer();
+        migrateLegacySystemPromptIfNeeded();
+        ensureDefaultPrompt();
         this.baseUrl = deriveBaseUrlFromActiveServer();
-        this.systemPrompt = resolveSystemPrompt();
+        this.systemPrompt = deriveSystemPromptFromActivePrompt();
         this.temperature = resolveTemperature();
         this.requestTimeoutMinutes = resolveRequestTimeoutMinutes();
         this.historyMaxMessages = resolveHistoryMaxMessages();
@@ -65,6 +76,11 @@ public class AppConfig {
         return baseUrl;
     }
 
+    /**
+     * Sets the URL of the <i>active</i> server, parsing protocol, host
+     * and port out of it. Other servers are untouched. Blank input
+     * resets the active server's host/port to the bundled defaults.
+     */
     public void setBaseUrl(String baseUrl) {
         String normalized = normalizeUrlOrNull(baseUrl);
         if (normalized == null) {
@@ -79,10 +95,12 @@ public class AppConfig {
         return defaults.baseUrl();
     }
 
+    /** Ids of all configured servers, in display order. Never empty. */
     public List<String> serverIds() {
-        return parseCsv(userConfig.getServerList());
+        return UserConfig.splitCsv(userConfig.getServerList());
     }
 
+    /** Id of the currently active server. Never {@code null}. */
     public String activeServerId() {
         String id = userConfig.getActiveServer();
         if (id == null || id.isBlank() || !serverIds().contains(id)) {
@@ -92,27 +110,37 @@ public class AppConfig {
         return id;
     }
 
+    /** Display name of the server with the given id, or the id itself. */
     public String serverName(String serverId) {
         String name = userConfig.getServerField(serverId, ConfigKeys.SERVER_NAME_SUFFIX);
         return (name == null || name.isBlank()) ? serverId : name;
     }
 
+    /**
+     * Derived URL of the given server, or {@code null} if the server
+     * has no host set.
+     */
     public String serverBaseUrl(String serverId) {
-        return buildUrl(serverId);
+        return buildServerUrl(serverId);
     }
 
+    /** Convenience: derived URL of the active server. */
     public String activeServerBaseUrl() {
         return serverBaseUrl(activeServerId());
     }
 
+    /**
+     * Adds a new server with a generated id and returns that id. The
+     * server is appended to the list; the active one is unchanged.
+     */
     public String addServer(String name, String host, int port) {
-        String id = generateServerId();
+        String id = generateId("srv", serverIds());
         userConfig.setServerField(id, ConfigKeys.SERVER_NAME_SUFFIX, name);
         userConfig.setServerField(id, ConfigKeys.SERVER_PROTOCOL_SUFFIX, DEFAULT_PROTOCOL);
         userConfig.setServerField(id, ConfigKeys.SERVER_HOST_SUFFIX, host);
         userConfig.setServerField(id, ConfigKeys.SERVER_PORT_SUFFIX, Integer.toString(port));
 
-        List<String> ids = new ArrayList<>(parseCsv(userConfig.getServerList()));
+        List<String> ids = new ArrayList<>(serverIds());
         ids.add(id);
         userConfig.setServerList(String.join(",", ids));
         return id;
@@ -131,21 +159,101 @@ public class AppConfig {
         }
     }
 
+    /**
+     * Removes a non-local server. The {@code local} server cannot be
+     * removed. If the removed server was active, the active id falls
+     * back to {@code local}.
+     */
     public void removeServer(String serverId) {
         if (serverId == null || serverId.isBlank()) return;
         if (LOCAL_SERVER_ID.equals(serverId)) return;
         if (!serverIds().contains(serverId)) return;
 
         userConfig.removeServer(serverId);
-        ensureLocalServer();
         this.baseUrl = deriveBaseUrlFromActiveServer();
     }
 
+    /** Switches the active server. Unknown ids are ignored. */
     public void setActiveServer(String serverId) {
         if (serverId == null || serverId.isBlank()) return;
         if (!serverIds().contains(serverId)) return;
         userConfig.setActiveServer(serverId);
         this.baseUrl = deriveBaseUrlFromActiveServer();
+    }
+
+    /** Ids of all configured prompts, in display order. Never empty. */
+    public List<String> promptIds() {
+        return UserConfig.splitCsv(userConfig.getPromptsList());
+    }
+
+    /** Id of the currently active prompt. Never {@code null}. */
+    public String activePromptId() {
+        String id = userConfig.getActivePrompt();
+        if (id == null || id.isBlank() || !promptIds().contains(id)) {
+            userConfig.setActivePrompt(DEFAULT_PROMPT_ID);
+            return DEFAULT_PROMPT_ID;
+        }
+        return id;
+    }
+
+    /** Display name of the prompt with the given id, or the id itself. */
+    public String promptName(String promptId) {
+        String name = userConfig.getPromptField(promptId, ConfigKeys.PROMPT_NAME_SUFFIX);
+        return (name == null || name.isBlank()) ? promptId : name;
+    }
+
+    /** Full text of the given prompt, or {@code null} if not set. */
+    public String promptText(String promptId) {
+        return userConfig.getPromptField(promptId, ConfigKeys.PROMPT_TEXT_SUFFIX);
+    }
+
+    /**
+     * Adds a new prompt with a generated id and returns that id.
+     * The prompt is appended to the list; the active one is unchanged.
+     */
+    public String addPrompt(String name, String text) {
+        String id = generateId("prm", promptIds());
+        userConfig.setPromptField(id, ConfigKeys.PROMPT_NAME_SUFFIX, name);
+        userConfig.setPromptField(id, ConfigKeys.PROMPT_TEXT_SUFFIX, text);
+
+        List<String> ids = new ArrayList<>(promptIds());
+        ids.add(id);
+        userConfig.setPromptsList(String.join(",", ids));
+        return id;
+    }
+
+    public void updatePrompt(String promptId, String name, String text) {
+        if (promptId == null || promptId.isBlank()) return;
+        if (!promptIds().contains(promptId)) return;
+
+        userConfig.setPromptField(promptId, ConfigKeys.PROMPT_NAME_SUFFIX, name);
+        userConfig.setPromptField(promptId, ConfigKeys.PROMPT_TEXT_SUFFIX, text);
+
+        if (promptId.equals(activePromptId())) {
+            this.systemPrompt = deriveSystemPromptFromActivePrompt();
+        }
+    }
+
+    /**
+     * Removes a non-default prompt. The {@code default} prompt cannot
+     * be removed. If the removed prompt was active, the active id
+     * falls back to {@code default}.
+     */
+    public void removePrompt(String promptId) {
+        if (promptId == null || promptId.isBlank()) return;
+        if (DEFAULT_PROMPT_ID.equals(promptId)) return;
+        if (!promptIds().contains(promptId)) return;
+
+        userConfig.removePrompt(promptId);
+        this.systemPrompt = deriveSystemPromptFromActivePrompt();
+    }
+
+    /** Switches the active prompt. Unknown ids are ignored. */
+    public void setActivePrompt(String promptId) {
+        if (promptId == null || promptId.isBlank()) return;
+        if (!promptIds().contains(promptId)) return;
+        userConfig.setActivePrompt(promptId);
+        this.systemPrompt = deriveSystemPromptFromActivePrompt();
     }
 
     public int requestTimeoutMinutes() {
@@ -179,13 +287,7 @@ public class AppConfig {
     }
 
     public void setSystemPrompt(String prompt) {
-        if (prompt == null || prompt.isBlank()) {
-            this.systemPrompt = defaults.systemPrompt();
-            userConfig.setSystemPrompt(null);
-        } else {
-            this.systemPrompt = prompt.trim();
-            userConfig.setSystemPrompt(this.systemPrompt);
-        }
+        updatePrompt(activePromptId(), promptName(activePromptId()), prompt);
     }
 
     public String defaultSystemPrompt() {
@@ -319,10 +421,9 @@ public class AppConfig {
     }
 
     private void ensureLocalServer() {
-        List<String> ids = new ArrayList<>(parseCsv(userConfig.getServerList()));
+        List<String> ids = new ArrayList<>(serverIds());
 
-        boolean hadLocal = ids.contains(LOCAL_SERVER_ID);
-        if (!hadLocal) {
+        if (!ids.contains(LOCAL_SERVER_ID)) {
             ids.add(0, LOCAL_SERVER_ID);
             userConfig.setServerList(String.join(",", ids));
             log.info("Self-heal: restored missing '{}' server entry", LOCAL_SERVER_ID);
@@ -355,14 +456,67 @@ public class AppConfig {
         }
     }
 
+    private void migrateLegacySystemPromptIfNeeded() {
+        String existingList = userConfig.getPromptsList();
+        if (existingList != null && !existingList.isBlank()) {
+            return;
+        }
+
+        String legacy = userConfig.getSystemPrompt();
+        String text = (legacy != null && !legacy.isBlank())
+                ? legacy
+                : defaults.systemPrompt();
+
+        userConfig.setPromptField(
+                DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_NAME_SUFFIX, "Default");
+        userConfig.setPromptField(
+                DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_TEXT_SUFFIX, text);
+
+        userConfig.setPromptsList(DEFAULT_PROMPT_ID);
+        userConfig.setActivePrompt(DEFAULT_PROMPT_ID);
+        log.info("Migrated legacy system prompt to named prompt '{}'",
+                DEFAULT_PROMPT_ID);
+    }
+
+    private void ensureDefaultPrompt() {
+        List<String> ids = new ArrayList<>(promptIds());
+
+        if (!ids.contains(DEFAULT_PROMPT_ID)) {
+            ids.add(0, DEFAULT_PROMPT_ID);
+            userConfig.setPromptsList(String.join(",", ids));
+            log.info("Self-heal: restored missing '{}' prompt entry",
+                    DEFAULT_PROMPT_ID);
+        }
+
+        if (userConfig.getPromptField(DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_NAME_SUFFIX) == null) {
+            userConfig.setPromptField(
+                    DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_NAME_SUFFIX, "Default");
+        }
+        if (userConfig.getPromptField(DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_TEXT_SUFFIX) == null) {
+            userConfig.setPromptField(
+                    DEFAULT_PROMPT_ID, ConfigKeys.PROMPT_TEXT_SUFFIX, defaults.systemPrompt());
+        }
+
+        String active = userConfig.getActivePrompt();
+        if (active == null || active.isBlank() || !ids.contains(active)) {
+            userConfig.setActivePrompt(DEFAULT_PROMPT_ID);
+        }
+    }
+
     private String deriveBaseUrlFromActiveServer() {
         String id = activeServerId();
-        String url = buildUrl(id);
+        String url = buildServerUrl(id);
         if (url != null) return url;
         return defaults.baseUrl();
     }
 
-    private String buildUrl(String serverId) {
+    private String deriveSystemPromptFromActivePrompt() {
+        String id = activePromptId();
+        String text = promptText(id);
+        return text != null ? text : defaults.systemPrompt();
+    }
+
+    private String buildServerUrl(String serverId) {
         String protocol = userConfig.getServerField(
                 serverId, ConfigKeys.SERVER_PROTOCOL_SUFFIX);
         String host = userConfig.getServerField(
@@ -404,14 +558,6 @@ public class AppConfig {
                 id, ConfigKeys.SERVER_PORT_SUFFIX, Integer.toString(parsed.port()));
     }
 
-    private String resolveSystemPrompt() {
-        String userValue = userConfig.getSystemPrompt();
-        if (userValue != null) {
-            return userValue;
-        }
-        return defaults.systemPrompt();
-    }
-
     private double resolveTemperature() {
         Double userValue = userConfig.getTemperature();
         if (userValue != null) return userValue;
@@ -434,16 +580,6 @@ public class AppConfig {
         Integer userValue = userConfig.getAttachMaxChars();
         if (userValue != null) return userValue;
         return defaults.attachMaxChars();
-    }
-
-    private static List<String> parseCsv(String csv) {
-        List<String> out = new ArrayList<>();
-        if (csv == null || csv.isBlank()) return out;
-        for (String token : csv.split(",")) {
-            String trimmed = token.trim();
-            if (!trimmed.isEmpty()) out.add(trimmed);
-        }
-        return out;
     }
 
     private static String normalizeUrlOrNull(String raw) {
@@ -482,14 +618,14 @@ public class AppConfig {
         }
     }
 
-    private String generateServerId() {
-        List<String> existing = serverIds();
+    private static String generateId(String prefix, List<String> existing) {
         for (int attempt = 0; attempt < 16; attempt++) {
-            String candidate = "srv-" + Long.toHexString(
-                    (long) (Math.random() * 0xFFFFFFFFL) & 0xFFFFFFFFL);
+            String candidate = prefix + "-"
+                    + UUID.randomUUID().toString().substring(0, 8);
             if (!existing.contains(candidate)) return candidate;
         }
-        return "srv-" + Objects.hash(System.nanoTime());
+        throw new IllegalStateException(
+                "Could not allocate a unique id with prefix '" + prefix + "'");
     }
 
     private record ParsedUrl(String protocol, String host, int port) {}

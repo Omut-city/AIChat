@@ -17,10 +17,11 @@ import java.util.Properties;
  * Survives application restarts.
  * <p>
  * Besides the flat scalar settings, this class is the persistence
- * backend for the named Ollama servers (F18): a comma-separated
- * id list, the active id, and per-server fields keyed by
- * {@code ollama.server.<id>.<field>}. The {@code local} server is
- * special — see {@link AppConfig} for the invariants.
+ * backend for two collections: named Ollama servers (F18) and named
+ * prompts (F13). Both follow the same shape — a comma-separated id
+ * list, an active id, and per-item fields keyed by a fixed prefix.
+ * The {@code local} server and the {@code default} prompt are special;
+ * see {@link AppConfig} for the invariants.
  */
 public class UserConfig {
 
@@ -115,8 +116,7 @@ public class UserConfig {
     /** One field of one server, or {@code null} if unset. */
     public synchronized String getServerField(String serverId, String fieldSuffix) {
         if (serverId == null || fieldSuffix == null) return null;
-        return properties.getProperty(
-                ConfigKeys.serverKey(serverId, fieldSuffix));
+        return properties.getProperty(ConfigKeys.serverKey(serverId, fieldSuffix));
     }
 
     /**
@@ -155,6 +155,77 @@ public class UserConfig {
 
         if (serverId.equals(getActiveServer())) {
             setActiveServer(null);
+        }
+        save();
+    }
+
+    /** Comma-separated prompt id list, in display order. Never {@code null}. */
+    public synchronized String getPromptsList() {
+        String raw = properties.getProperty(ConfigKeys.PROMPTS_LIST);
+        return raw == null ? "" : raw;
+    }
+
+    public synchronized void setPromptsList(String csv) {
+        if (csv == null || csv.isBlank()) {
+            properties.remove(ConfigKeys.PROMPTS_LIST);
+        } else {
+            properties.setProperty(ConfigKeys.PROMPTS_LIST, csv);
+        }
+        save();
+    }
+
+    /** Active prompt id, or {@code null} if unset. */
+    public synchronized String getActivePrompt() {
+        return properties.getProperty(ConfigKeys.ACTIVE_PROMPT);
+    }
+
+    public synchronized void setActivePrompt(String promptId) {
+        if (promptId == null || promptId.isBlank()) {
+            properties.remove(ConfigKeys.ACTIVE_PROMPT);
+        } else {
+            properties.setProperty(ConfigKeys.ACTIVE_PROMPT, promptId);
+        }
+        save();
+    }
+
+    /** One field of one prompt, or {@code null} if unset. */
+    public synchronized String getPromptField(String promptId, String fieldSuffix) {
+        if (promptId == null || fieldSuffix == null) return null;
+        return properties.getProperty(ConfigKeys.promptKey(promptId, fieldSuffix));
+    }
+
+    /**
+     * Writes one field of one prompt. A {@code null} or blank value
+     * removes the key entirely — prompts are expected to be complete
+     * or absent, not half-populated.
+     */
+    public synchronized void setPromptField(String promptId, String fieldSuffix, String value) {
+        if (promptId == null || fieldSuffix == null) return;
+        String key = ConfigKeys.promptKey(promptId, fieldSuffix);
+        if (value == null || value.isBlank()) {
+            properties.remove(key);
+        } else {
+            properties.setProperty(key, value);
+        }
+        save();
+    }
+
+    /**
+     * Removes every property belonging to the given prompt id, plus
+     * its entry in the list. Used by "Remove prompt" in Settings.
+     */
+    public synchronized void removePrompt(String promptId) {
+        if (promptId == null || promptId.isBlank()) return;
+
+        properties.remove(ConfigKeys.promptKey(promptId, ConfigKeys.PROMPT_NAME_SUFFIX));
+        properties.remove(ConfigKeys.promptKey(promptId, ConfigKeys.PROMPT_TEXT_SUFFIX));
+
+        List<String> ids = splitCsv(getPromptsList());
+        ids.remove(promptId);
+        setPromptsList(String.join(",", ids));
+
+        if (promptId.equals(getActivePrompt())) {
+            setActivePrompt(null);
         }
         save();
     }
@@ -272,7 +343,12 @@ public class UserConfig {
         }
     }
 
-    private static List<String> splitCsv(String csv) {
+    /**
+     * Splits a comma-separated string into trimmed non-blank tokens.
+     * Public so {@link AppConfig} can reuse it for both server and
+     * prompt lists.
+     */
+    public static List<String> splitCsv(String csv) {
         List<String> out = new ArrayList<>();
         if (csv == null || csv.isBlank()) return out;
         for (String token : csv.split(",")) {

@@ -129,7 +129,10 @@ class AppConfigTest {
             AppConfig c = config();
             c.setSystemPrompt("be concise");
             assertThat(c.systemPrompt()).isEqualTo("be concise");
-            assertThat(readBack().getProperty(ConfigKeys.CHAT_SYSTEM_PROMPT))
+
+            Properties saved = readBack();
+            assertThat(saved.getProperty(
+                    ConfigKeys.promptKey("default", ConfigKeys.PROMPT_TEXT_SUFFIX)))
                     .isEqualTo("be concise");
         }
     }

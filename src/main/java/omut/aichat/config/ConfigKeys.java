@@ -22,6 +22,11 @@ public final class ConfigKeys {
     public static final String OLLAMA_ACTIVE_SERVER = "ollama.active.server";
     public static final String OLLAMA_SERVER_PREFIX = "ollama.server.";
 
+    // Named prompts
+    public static final String PROMPTS_LIST = "chat.prompts.list";
+    public static final String ACTIVE_PROMPT = "chat.active.prompt";
+    public static final String PROMPT_PREFIX = "chat.prompt.";
+
     // LLM request
     public static final String OLLAMA_REQUEST_TIMEOUT_MINUTES = "ollama.request.timeout.minutes";
     public static final String OLLAMA_TEMPERATURE = "ollama.temperature";
@@ -44,17 +49,23 @@ public final class ConfigKeys {
     // Syntax highlighting
     public static final String HIGHLIGHT_JS_PATH = "highlight.js.path";
 
-    /** Suffix for the {@code name} field of a named server. */
+    // Server field suffixes
     public static final String SERVER_NAME_SUFFIX = ".name";
-    /** Suffix for the {@code protocol} field of a named server. */
     public static final String SERVER_PROTOCOL_SUFFIX = ".protocol";
-    /** Suffix for the {@code host} field of a named server. */
     public static final String SERVER_HOST_SUFFIX = ".host";
-    /** Suffix for the {@code port} field of a named server. */
     public static final String SERVER_PORT_SUFFIX = ".port";
+
+    // Prompt field suffixes
+    public static final String PROMPT_NAME_SUFFIX = ".name";
+    public static final String PROMPT_TEXT_SUFFIX = ".text";
 
     /** Builds the full property key for one field of one named server. */
     public static String serverKey(String serverId, String fieldSuffix) {
         return OLLAMA_SERVER_PREFIX + serverId + fieldSuffix;
+    }
+
+    /** Builds the full property key for one field of one named prompt. */
+    public static String promptKey(String promptId, String fieldSuffix) {
+        return PROMPT_PREFIX + promptId + fieldSuffix;
     }
 }
