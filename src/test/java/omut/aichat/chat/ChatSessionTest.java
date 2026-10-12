@@ -584,4 +584,106 @@ class ChatSessionTest {
             verify(llm, never()).rebuildModel();
         }
     }
+
+    @Nested
+    @DisplayName("switchPrompt")
+    class SwitchPrompt {
+
+        @Test
+        @DisplayName("Persists active id, applies prompt text, emits notice")
+        void happy() throws Exception {
+            when(config.promptName("prm-abcd1234")).thenReturn("Code reviewer");
+            when(config.systemPrompt()).thenReturn("You are a strict reviewer");
+
+            session.switchPrompt("prm-abcd1234");
+            awaitEvent("notice:SUCCESS");
+
+            verify(config).setActivePrompt("prm-abcd1234");
+            assertThat(listener.lastNotice.get())
+                    .isEqualTo("Switched to prompt: Code reviewer");
+            assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("Replaces the existing SYSTEM message with the new prompt's text")
+        void replacesSystem() throws Exception {
+            when(config.systemPrompt()).thenReturn("initial prompt");
+            ChatSession s = new ChatSession(llm, config);
+            s.addListener(listener);
+
+            assertThat(s.getHistory()).hasSize(1);
+            assertThat(s.getHistory().getFirst().text()).isEqualTo("initial prompt");
+
+            when(config.promptName("prm-x")).thenReturn("X");
+            when(config.systemPrompt()).thenReturn("new prompt");
+
+            s.switchPrompt("prm-x");
+            awaitEvent("notice:SUCCESS");
+
+            assertThat(s.getHistory()).hasSize(1);
+            assertThat(s.getHistory().getFirst().role())
+                    .isEqualTo(AIChatMessage.Role.SYSTEM);
+            assertThat(s.getHistory().getFirst().text()).isEqualTo("new prompt");
+        }
+
+        @Test
+        @DisplayName("Prepends SYSTEM when none exists, if new prompt text is non-blank")
+        void prependsSystem() throws Exception {
+            when(config.systemPrompt()).thenReturn("");
+            ChatSession s = new ChatSession(llm, config);
+            s.addListener(listener);
+
+            assertThat(s.getHistory()).isEmpty();
+
+            when(config.promptName("prm-x")).thenReturn("X");
+            when(config.systemPrompt()).thenReturn("greetings");
+
+            s.switchPrompt("prm-x");
+            awaitEvent("notice:SUCCESS");
+
+            assertThat(s.getHistory()).hasSize(1);
+            assertThat(s.getHistory().getFirst().role())
+                    .isEqualTo(AIChatMessage.Role.SYSTEM);
+            assertThat(s.getHistory().getFirst().text()).isEqualTo("greetings");
+        }
+
+        @Test
+        @DisplayName("Removes SYSTEM when new prompt text is blank")
+        void removesSystem() throws Exception {
+            when(config.systemPrompt()).thenReturn("initial");
+            ChatSession s = new ChatSession(llm, config);
+            s.addListener(listener);
+
+            assertThat(s.getHistory()).hasSize(1);
+
+            when(config.promptName("prm-empty")).thenReturn("Empty");
+            when(config.systemPrompt()).thenReturn("");
+
+            s.switchPrompt("prm-empty");
+            awaitEvent("notice:SUCCESS");
+
+            assertThat(s.getHistory()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Blank id is a no-op")
+        void blank() {
+            session.switchPrompt("   ");
+            session.switchPrompt(null);
+            verify(config, never()).setActivePrompt(any());
+        }
+
+        @Test
+        @DisplayName("Exception from config becomes an ERROR notice")
+        void exception() throws Exception {
+            doThrow(new RuntimeException("boom"))
+                    .when(config).setActivePrompt("prm-bad");
+
+            session.switchPrompt("prm-bad");
+            awaitEvent("notice:ERROR");
+
+            assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
+            assertThat(listener.lastNotice.get()).contains("Failed to switch prompt");
+        }
+    }
 }

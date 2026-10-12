@@ -271,6 +271,10 @@ public class ChatSession implements ChatCommands {
      * Base URL is intentionally not part of this path. It belongs to
      * the active named server and is changed through
      * {@link #switchServer(String)} or the Settings → Servers block.
+     * <p>
+     * Prompt is likewise not part of this path — it belongs to the
+     * active named prompt and is changed through
+     * {@link #switchPrompt(String)} or the Settings → Prompts block.
      */
     public void applySettings(AppSettings settings) {
         if (settings == null) return;
@@ -312,28 +316,61 @@ public class ChatSession implements ChatCommands {
         });
     }
 
+    /**
+     * Switches to another named prompt and applies its text to the
+     * SYSTEM message in the current transcript. The active prompt is
+     * persisted through {@link AppConfig}.
+     * <p>
+     * Unlike {@link #switchServer(String)} this does not touch the
+     * streaming model — the prompt only affects the next request's
+     * message list, not the model configuration.
+     */
+    public void switchPrompt(String promptId) {
+        if (promptId == null || promptId.isBlank()) return;
+        submit(() -> {
+            try {
+                config.setActivePrompt(promptId);
+                applySystemPromptToHistory(config.systemPrompt());
+                dispatcher.notice(
+                        "Switched to prompt: " + config.promptName(promptId),
+                        NoticeLevel.SUCCESS);
+            } catch (Exception e) {
+                dispatcher.notice("Failed to switch prompt: " + e.getMessage(),
+                        NoticeLevel.ERROR);
+            }
+        });
+    }
+
+    /**
+     * Updates the active prompt's text and applies it to the SYSTEM
+     * message in the current transcript.
+     */
     public void setSystemPrompt(String prompt) {
         submit(() -> {
             try {
                 config.setSystemPrompt(prompt);
-                String updated = config.systemPrompt();
-                boolean hasSystem = !editor.isEmpty()
-                        && editor.first().role() == AIChatMessage.Role.SYSTEM;
-
-                if (updated.isBlank()) {
-                    if (hasSystem) editor.removeFirst();
-                } else {
-                    if (hasSystem) {
-                        editor.set(0, AIChatMessage.system(updated));
-                    } else {
-                        editor.prepend(AIChatMessage.system(updated));
-                    }
-                }
+                applySystemPromptToHistory(config.systemPrompt());
                 dispatcher.notice("System prompt updated.", NoticeLevel.SUCCESS);
             } catch (Exception e) {
-                dispatcher.notice("Failed to update system prompt: " + e.getMessage(), NoticeLevel.ERROR);
+                dispatcher.notice("Failed to update system prompt: " + e.getMessage(),
+                        NoticeLevel.ERROR);
             }
         });
+    }
+
+    private void applySystemPromptToHistory(String text) {
+        boolean hasSystem = !editor.isEmpty()
+                && editor.first().role() == AIChatMessage.Role.SYSTEM;
+
+        if (text == null || text.isBlank()) {
+            if (hasSystem) editor.removeFirst();
+        } else {
+            if (hasSystem) {
+                editor.set(0, AIChatMessage.system(text));
+            } else {
+                editor.prepend(AIChatMessage.system(text));
+            }
+        }
     }
 
     private void submit(Runnable task) {
