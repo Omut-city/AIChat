@@ -80,7 +80,6 @@ public class ChatView implements ChatListener {
         view.inputField.setOnAction(_ -> onSend());
         view.clearButton.setOnAction(_ -> session.clear());
         view.checkButton.setOnAction(_ -> session.checkAvailability());
-        view.promptButton.setOnAction(_ -> onEditSystemPrompt());
         view.saveButton.setOnAction(_ -> onSave());
         view.copyLastButton.setOnAction(_ -> onCopyLast());
         view.stopButton.setOnAction(_ -> session.cancelCurrentRequest());
@@ -334,14 +333,6 @@ public class ChatView implements ChatListener {
             if (m.role() == AIChatMessage.Role.ASSISTANT) return true;
         }
         return false;
-    }
-
-    private void onEditSystemPrompt() {
-        String newPrompt = ChatDialogs.editSystemPrompt(
-                window(), config.systemPrompt(), config.defaultSystemPrompt());
-        if (newPrompt != null && !newPrompt.isBlank() && !newPrompt.equals(config.systemPrompt())) {
-            session.setSystemPrompt(newPrompt);
-        }
     }
 
     private String openEditDialog(String messageId) {

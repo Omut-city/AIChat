@@ -34,13 +34,6 @@ public final class ChatDialogs {
         return dialog.showAndWait().orElse(null);
     }
 
-    /** Returns the edited system prompt, or {@code null} if cancelled. */
-    public static String editSystemPrompt(Window owner, String current, String fallback) {
-        SystemPromptDialog dialog = new SystemPromptDialog(current, fallback);
-        dialog.initOwner(owner);
-        return dialog.showAndWait().orElse(null);
-    }
-
     /** Returns the edited settings, or {@code null} if cancelled. */
     public static AppSettings editSettings(
             Window owner,
@@ -67,6 +60,24 @@ public final class ChatDialogs {
             ServerEditDialog.Result initial
     ) {
         ServerEditDialog dialog = new ServerEditDialog(title, headerText, initial);
+        dialog.initOwner(owner);
+        return dialog.showAndWait().orElse(null);
+    }
+
+    /**
+     * Returns the edited prompt fields, or {@code null} if cancelled.
+     *
+     * @param title      window title, e.g. "Add prompt" / "Edit prompt"
+     * @param headerText header shown under the title bar
+     * @param initial    values to pre-fill, or {@code null} for a new prompt
+     */
+    public static PromptEditDialog.Result editPrompt(
+            Window owner,
+            String title,
+            String headerText,
+            PromptEditDialog.Result initial
+    ) {
+        PromptEditDialog dialog = new PromptEditDialog(title, headerText, initial);
         dialog.initOwner(owner);
         return dialog.showAndWait().orElse(null);
     }
