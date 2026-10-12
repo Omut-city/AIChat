@@ -13,10 +13,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -28,14 +24,19 @@ import java.util.concurrent.CompletableFuture;
  * cancelled. Validation happens live: OK is disabled until name and
  * host are non-blank and port is within range.
  * <p>
- * The dialog is deliberately unaware of the server id, the protocol
- * (currently always HTTP), and the {@code AppConfig} model. Callers
- * decide what to do with the {@code Result}.
+ * The dialog is deliberately unaware of the server id and the
+ * {@code AppConfig} model. Callers decide what to do with the
+ * {@code Result}.
+ * <p>
+ * Protocol is fixed at {@code "http"} for now — the data model
+ * supports {@code "https"} but the dialog does not expose it yet.
+ * When the HTTPS toggle lands, it becomes a field here and the
+ * single constant below is replaced by the checkbox value.
  */
 public class ServerEditDialog extends Dialog<ServerEditDialog.Result> {
 
     private static final PseudoClass INVALID = PseudoClass.getPseudoClass("invalid");
-    private static final int PING_TIMEOUT_MS = 2000;
+    private static final String PROTOCOL = "http";
 
     /** Immutable snapshot of the edited fields. */
     public record Result(String name, String host, int port) {}
@@ -146,9 +147,8 @@ public class ServerEditDialog extends Dialog<ServerEditDialog.Result> {
         result.setText("Testing...");
         result.getStyleClass().removeAll("test-ok", "test-fail");
 
-        String url = "http://" + trimmedHost + ":" + port;
         CompletableFuture
-                .supplyAsync(() -> ping(url))
+                .supplyAsync(() -> OllamaPing.ping(PROTOCOL, trimmedHost, port))
                 .whenComplete((message, error) -> Platform.runLater(() -> {
                     testButton.setDisable(false);
                     if (error != null || message == null) {
@@ -161,34 +161,6 @@ public class ServerEditDialog extends Dialog<ServerEditDialog.Result> {
                         result.getStyleClass().add("test-ok");
                     }
                 }));
-    }
-
-    private static String ping(String baseUrl) {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection)
-                    URI.create(baseUrl + "/api/tags").toURL().openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(PING_TIMEOUT_MS);
-            connection.setReadTimeout(PING_TIMEOUT_MS);
-            int code = connection.getResponseCode();
-            if (code != 200) return null;
-
-            byte[] body = connection.getInputStream().readAllBytes();
-            String text = new String(body, StandardCharsets.UTF_8);
-            int count = 0;
-            int idx = 0;
-            while ((idx = text.indexOf("\"name\"", idx)) >= 0) {
-                count++;
-                idx += 6;
-            }
-            if (count == 0) return "Connected";
-            return "Connected (" + count + " models)";
-        } catch (IOException | IllegalArgumentException e) {
-            return null;
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
     }
 
     private static int parsePort(String raw) {

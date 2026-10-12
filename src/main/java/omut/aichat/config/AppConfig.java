@@ -405,7 +405,7 @@ public class AppConfig {
         }
 
         userConfig.setServerField(
-                LOCAL_SERVER_ID, ConfigKeys.SERVER_NAME_SUFFIX, parsed.host());
+                LOCAL_SERVER_ID, ConfigKeys.SERVER_NAME_SUFFIX, "Local");
         userConfig.setServerField(
                 LOCAL_SERVER_ID, ConfigKeys.SERVER_PROTOCOL_SUFFIX, parsed.protocol());
         userConfig.setServerField(

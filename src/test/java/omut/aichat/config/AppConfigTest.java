@@ -56,7 +56,7 @@ class AppConfigTest {
             AppConfig c = config();
             assertThat(c.serverIds()).containsExactly(AppConfig.LOCAL_SERVER_ID);
             assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
-            assertThat(c.serverName(AppConfig.LOCAL_SERVER_ID)).isEqualTo("127.0.0.1");
+            assertThat(c.serverName(AppConfig.LOCAL_SERVER_ID)).isEqualTo("Local");
         }
     }
 
