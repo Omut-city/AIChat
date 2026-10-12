@@ -552,6 +552,17 @@ class ChatSessionTest {
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
             assertThat(listener.lastNotice.get()).contains("File too large");
         }
+
+        @Test
+        @DisplayName("Empty content emits an ERROR notice, nothing added")
+        void emptyContent() throws Exception {
+            session.attachFile("empty.txt", "   ");
+            awaitEvent("notice:ERROR");
+
+            assertThat(session.getHistory()).isEmpty();
+            assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
+            assertThat(listener.lastNotice.get()).contains("empty");
+        }
     }
 
     @Nested
@@ -582,6 +593,20 @@ class ChatSessionTest {
             session.switchServer(null);
             verify(config, never()).setActiveServer(any());
             verify(llm, never()).rebuildModel();
+        }
+
+        @Test
+        @DisplayName("Exception from llmService.rebuildModel becomes an ERROR notice")
+        void rebuildFails() throws Exception {
+            doThrow(new RuntimeException("boom"))
+                    .when(llm).rebuildModel();
+
+            session.switchServer("srv-x");
+            awaitEvent("notice:ERROR");
+
+            assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.ERROR);
+            assertThat(listener.lastNotice.get())
+                    .contains("Failed to switch server");
         }
     }
 

@@ -323,6 +323,22 @@ class AppConfigTest {
                     ConfigKeys.serverKey("local", ConfigKeys.SERVER_PORT_SUFFIX)))
                     .isEqualTo("11434");
         }
+
+        @Test
+        @DisplayName("addServer after self-heal keeps 'local' first")
+        void addAfterSelfHeal() throws IOException {
+            Files.createDirectories(tmp);
+            Files.writeString(configFile(),
+                    ConfigKeys.OLLAMA_SERVER_LIST + "=srv-aaaa\n"
+                            + ConfigKeys.OLLAMA_ACTIVE_SERVER + "=srv-aaaa\n");
+
+            AppConfig c = config();
+            assertThat(c.serverIds()).first().isEqualTo(AppConfig.LOCAL_SERVER_ID);
+
+            String newId = c.addServer("New", "1.2.3.4", 11434);
+            assertThat(c.serverIds()).containsExactly(
+                    AppConfig.LOCAL_SERVER_ID, "srv-aaaa", newId);
+        }
     }
 
     @Nested
@@ -355,6 +371,22 @@ class AppConfigTest {
             AppConfig c = config();
             c.addServer("Home", "10.0.0.10", 11434);
             assertThat(c.activeServerId()).isEqualTo(AppConfig.LOCAL_SERVER_ID);
+        }
+
+        @Test
+        @DisplayName("100 servers produce 100 unique ids")
+        void uniqueIds() {
+            AppConfig c = config();
+            java.util.Set<String> ids = new java.util.HashSet<>();
+            ids.add(AppConfig.LOCAL_SERVER_ID);
+
+            for (int i = 0; i < 100; i++) {
+                String id = c.addServer("S" + i, "127.0.0.1", 11434);
+                assertThat(ids.add(id))
+                        .as("duplicate id generated: " + id)
+                        .isTrue();
+            }
+            assertThat(c.serverIds()).hasSize(101);
         }
     }
 
@@ -531,6 +563,36 @@ class AppConfigTest {
             String b = c.addServer("B", "2.2.2.2", 2);
             assertThat(c.serverIds()).containsExactly(
                     AppConfig.LOCAL_SERVER_ID, a, b);
+        }
+    }
+
+    @Nested
+    @DisplayName("Idempotent initialization")
+    class Idempotent {
+
+        @Test
+        @DisplayName("Second AppConfig on the same file does not re-migrate the server")
+        void secondInitDoesNotRenameLocal() {
+            AppConfig first = config();
+            String firstId = first.activeServerId();
+            String firstName = first.serverName(firstId);
+
+            AppConfig second = new AppConfig(new UserConfig(configFile()));
+
+            assertThat(second.activeServerId()).isEqualTo(firstId);
+            assertThat(second.serverName(firstId)).isEqualTo(firstName);
+            assertThat(second.serverIds()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("Second AppConfig does not re-migrate the legacy prompt")
+        void secondInitDoesNotTouchPrompt() {
+            AppConfig first = config();
+            first.updatePrompt(AppConfig.DEFAULT_PROMPT_ID, "Custom", "custom text");
+
+            AppConfig second = new AppConfig(new UserConfig(configFile()));
+            assertThat(second.systemPrompt()).isEqualTo("custom text");
+            assertThat(second.promptIds()).containsExactly(AppConfig.DEFAULT_PROMPT_ID);
         }
     }
 }
