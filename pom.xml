@@ -33,6 +33,7 @@
         <jackson.version>2.22.3</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
         <jsoup.version>1.23.2</jsoup.version>
+        <openpdf.version>2.0.3</openpdf.version>
         <junit.version>5.11.4</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <mockito.version>5.15.2</mockito.version>
@@ -85,6 +86,11 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
         </dependency>
 
         <dependency>

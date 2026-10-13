@@ -1,5 +1,7 @@
 package omut.aichat.chat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ChatExporterTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @TempDir
     Path tmp;
@@ -196,5 +200,233 @@ class ChatExporterTest {
             String md = export(List.of(AIChatMessage.user(original)));
             assertThat(md).contains(original);
         }
+    }
+
+    @Nested
+    @DisplayName("JSON export")
+    class Json {
+
+        @Test
+        @DisplayName("Has exported timestamp and messages array")
+        void header() throws IOException {
+            JsonNode root = exportJson(List.of());
+            assertThat(root.get("exported").asText()).isNotBlank();
+            assertThat(root.get("messages").isArray()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Empty history produces empty messages array")
+        void empty() throws IOException {
+            JsonNode root = exportJson(List.of());
+            assertThat(root.get("messages")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("One object per message, in order")
+        void order() throws IOException {
+            AIChatMessage user = AIChatMessage.user("q");
+            AIChatMessage assistant = AIChatMessage.assistant("a", 1234L, "qwen2.5:7b");
+
+            JsonNode messages = exportJson(List.of(user, assistant)).get("messages");
+
+            assertThat(messages).hasSize(2);
+            assertThat(messages.get(0).get("role").asText()).isEqualTo("USER");
+            assertThat(messages.get(1).get("role").asText()).isEqualTo("ASSISTANT");
+        }
+
+        @Test
+        @DisplayName("USER message keeps id, text, null model")
+        void user() throws IOException {
+            AIChatMessage user = AIChatMessage.user("hello");
+            JsonNode node = exportJson(List.of(user)).get("messages").get(0);
+
+            assertThat(node.get("id").asText()).isEqualTo(user.id());
+            assertThat(node.get("text").asText()).isEqualTo("hello");
+            assertThat(node.get("model").isNull()).isTrue();
+            assertThat(node.get("durationMillis").asLong()).isZero();
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message keeps model and duration")
+        void assistant() throws IOException {
+            AIChatMessage a = AIChatMessage.assistant("hi", 1234L, "qwen2.5:7b");
+            JsonNode node = exportJson(List.of(a)).get("messages").get(0);
+
+            assertThat(node.get("role").asText()).isEqualTo("ASSISTANT");
+            assertThat(node.get("model").asText()).isEqualTo("qwen2.5:7b");
+            assertThat(node.get("durationMillis").asLong()).isEqualTo(1234L);
+        }
+
+        @Test
+        @DisplayName("SYSTEM message has null model")
+        void system() throws IOException {
+            JsonNode node = exportJson(List.of(AIChatMessage.system("prompt")))
+                    .get("messages").get(0);
+
+            assertThat(node.get("role").asText()).isEqualTo("SYSTEM");
+            assertThat(node.get("model").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("UTF-8 round-trip")
+        void utf8() throws IOException {
+            JsonNode node = exportJson(List.of(AIChatMessage.user("Привет, мир")))
+                    .get("messages").get(0);
+
+            assertThat(node.get("text").asText()).isEqualTo("Привет, мир");
+        }
+    }
+
+    @Nested
+    @DisplayName("HTML export")
+    class Html {
+
+        @Test
+        @DisplayName("Starts with doctype and html tag")
+        void doctype() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).startsWith("<!DOCTYPE html>");
+            assertThat(html).contains("<html lang=\"en\">");
+            assertThat(html).contains("</html>");
+        }
+
+        @Test
+        @DisplayName("Has charset meta and title")
+        void head() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).contains("<meta charset=\"UTF-8\">");
+            assertThat(html).contains("<title>AIChat conversation</title>");
+        }
+
+        @Test
+        @DisplayName("Has exported timestamp")
+        void timestamp() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).contains("Exported: ");
+        }
+
+        @Test
+        @DisplayName("USER message uses .user class and 'You' role")
+        void user() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("hello")));
+            assertThat(html).contains("class=\"msg user\"");
+            assertThat(html).contains("<div class=\"role\">You</div>");
+            assertThat(html).contains("<div class=\"body\">hello</div>");
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message includes model name")
+        void assistantWithModel() throws IOException {
+            String html = exportHtml(List.of(
+                    AIChatMessage.assistant("hi", 0L, "qwen2.5:7b")));
+            assertThat(html).contains("class=\"msg assistant\"");
+            assertThat(html).contains("AI (qwen2.5:7b)");
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message falls back to bare 'AI' when model is null")
+        void assistantNullModel() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.assistant("hi", 0L, null)));
+            assertThat(html).contains("<div class=\"role\">AI</div>");
+            assertThat(html).doesNotContain("AI (");
+        }
+
+        @Test
+        @DisplayName("SYSTEM message uses .system class")
+        void system() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.system("prompt")));
+            assertThat(html).contains("class=\"msg system\"");
+            assertThat(html).contains("prompt");
+        }
+
+        @Test
+        @DisplayName("HTML special characters are escaped")
+        void escaping() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("<script>alert(1)</script>")));
+            assertThat(html).doesNotContain("<script>");
+            assertThat(html).contains("&lt;script&gt;");
+        }
+
+        @Test
+        @DisplayName("Ampersand is escaped")
+        void ampersand() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("a & b")));
+            assertThat(html).contains("a &amp; b");
+        }
+
+        @Test
+        @DisplayName("UTF-8 round-trip")
+        void utf8() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("Привет, мир")));
+            assertThat(html).contains("Привет, мир");
+        }
+    }
+
+    @Nested
+    @DisplayName("PDF export")
+    class Pdf {
+
+        @Test
+        @DisplayName("Creates a file with %PDF- header")
+        void header() throws IOException {
+            Path file = exportPdf(List.of(AIChatMessage.user("hi")));
+
+            assertThat(file).exists();
+            byte[] bytes = Files.readAllBytes(file);
+            assertThat(bytes.length).isGreaterThan(100);
+            assertThat(new String(bytes, 0, 5, StandardCharsets.US_ASCII))
+                    .isEqualTo("%PDF-");
+        }
+
+        @Test
+        @DisplayName("Empty history still produces a valid PDF")
+        void empty() throws IOException {
+            Path file = exportPdf(List.of());
+
+            assertThat(file).exists();
+            byte[] bytes = Files.readAllBytes(file);
+            assertThat(bytes.length).isGreaterThan(100);
+            assertThat(new String(bytes, 0, 5, StandardCharsets.US_ASCII))
+                    .isEqualTo("%PDF-");
+        }
+
+        @Test
+        @DisplayName("Assorted roles and UTF-8 text do not break export")
+        void assortedRoles() throws IOException {
+            Path file = exportPdf(List.of(
+                    AIChatMessage.system("be concise"),
+                    AIChatMessage.user("Привет"),
+                    AIChatMessage.assistant("hi", 0L, "qwen2.5:7b")));
+
+            assertThat(file).exists();
+            assertThat(Files.size(file)).isGreaterThan(100);
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message with null model uses bare 'AI' header")
+        void assistantNullModel() throws IOException {
+            Path file = exportPdf(List.of(
+                    AIChatMessage.assistant("hi", 0L, null)));
+            assertThat(file).exists();
+            assertThat(Files.size(file)).isGreaterThan(100);
+        }
+    }
+
+    private JsonNode exportJson(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.json");
+        ChatExporter.exportJson(history, file);
+        return JSON.readTree(file.toFile());
+    }
+
+    private String exportHtml(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.html");
+        ChatExporter.exportHtml(history, file);
+        return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    private Path exportPdf(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.pdf");
+        ChatExporter.exportPdf(history, file);
+        return file;
     }
 }

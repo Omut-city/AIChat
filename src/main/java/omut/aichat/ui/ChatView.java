@@ -415,17 +415,33 @@ public class ChatView implements ChatListener {
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Save conversation");
         chooser.setInitialFileName(defaultFileName());
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Markdown (*.md)", "*.md"));
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Markdown (*.md)", "*.md"),
+                new FileChooser.ExtensionFilter("JSON (*.json)", "*.json"),
+                new FileChooser.ExtensionFilter("HTML (*.html)", "*.html"),
+                new FileChooser.ExtensionFilter("PDF (*.pdf)", "*.pdf"));
 
         File file = chooser.showSaveDialog(window());
         if (file == null) return;
 
         try {
-            ChatExporter.exportMarkdown(history, file.toPath());
+            export(history, file);
             showSuccess("Saved: " + file.getName());
         } catch (IOException e) {
             showError("Save failed: " + e.getMessage());
+        }
+    }
+
+    private void export(List<AIChatMessage> history, File file) throws IOException {
+        String name = file.getName().toLowerCase();
+        if (name.endsWith(".json")) {
+            ChatExporter.exportJson(history, file.toPath());
+        } else if (name.endsWith(".html")) {
+            ChatExporter.exportHtml(history, file.toPath());
+        } else if (name.endsWith(".pdf")) {
+            ChatExporter.exportPdf(history, file.toPath());
+        } else {
+            ChatExporter.exportMarkdown(history, file.toPath());
         }
     }
 
@@ -455,7 +471,7 @@ public class ChatView implements ChatListener {
 
     private String defaultFileName() {
         String model = session.currentModel().replace(":", "-");
-        return "chat-" + model + "-" + LocalDate.now() + ".md";
+        return "chat-" + model + "-" + LocalDate.now();
     }
 
     private void showInfo(String text) {

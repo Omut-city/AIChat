@@ -12,6 +12,7 @@ module omut.aichat {
     requires java.desktop;
     requires java.net.http;
     requires jdk.jsobject;
+    requires com.github.librepdf.openpdf;
 
     exports omut.aichat;
     exports omut.aichat.chat;
