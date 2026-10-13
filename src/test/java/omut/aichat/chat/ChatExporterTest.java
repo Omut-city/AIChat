@@ -401,6 +401,15 @@ class ChatExporterTest {
             assertThat(file).exists();
             assertThat(Files.size(file)).isGreaterThan(100);
         }
+
+        @Test
+        @DisplayName("ASSISTANT message with null model uses bare 'AI' header")
+        void assistantNullModel() throws IOException {
+            Path file = exportPdf(List.of(
+                    AIChatMessage.assistant("hi", 0L, null)));
+            assertThat(file).exists();
+            assertThat(Files.size(file)).isGreaterThan(100);
+        }
     }
 
     private JsonNode exportJson(List<AIChatMessage> history) throws IOException {
