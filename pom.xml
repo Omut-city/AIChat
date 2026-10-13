@@ -12,10 +12,17 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- Sonar -->
+        <sonar.organization>omut-dev</sonar.organization>
+
         <!-- Build -->
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
         <maven.compiler.release>25</maven.compiler.release>
         <javafx.plugin.version>0.0.8</javafx.plugin.version>
+
+        <!-- Quality -->
+        <jacoco.version>0.8.13</jacoco.version>
+        <sonar.maven.plugin.version>5.5.0.6356</sonar.maven.plugin.version>
 
         <!-- Dependencies -->
         <atlantafx-base.version>2.1.0</atlantafx-base.version>
@@ -139,7 +146,7 @@
                 <configuration>
                     <useModulePath>false</useModulePath>
                     <argLine>
-                        -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
+                        @{argLine} -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
                     </argLine>
                 </configuration>
             </plugin>
@@ -154,6 +161,33 @@
                         <option>--enable-native-access=javafx.graphics,javafx.web</option>
                     </options>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>${sonar.maven.plugin.version}</version>
             </plugin>
         </plugins>
     </build>
