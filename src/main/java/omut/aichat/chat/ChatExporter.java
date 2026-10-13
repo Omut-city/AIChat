@@ -1,5 +1,8 @@
 package omut.aichat.chat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import omut.aichat.utils.TimeFormat;
 
 import java.io.IOException;
@@ -57,5 +60,25 @@ public class ChatExporter {
      */
     public static String quoteSystem(String text) {
         return "> " + text.stripTrailing().replace("\n", "\n> ");
+    }
+
+    /** Exports the conversation to a JSON file. */
+    public static void exportJson(List<AIChatMessage> history, Path file) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+        root.put("exported", LocalDateTime.now().format(TIMESTAMP));
+
+        ArrayNode messages = root.putArray("messages");
+        for (AIChatMessage msg : history) {
+            ObjectNode node = messages.addObject();
+            node.put("id", msg.id());
+            node.put("role", msg.role().name());
+            node.put("text", msg.text());
+            node.put("timestamp", msg.timestamp());
+            node.put("durationMillis", msg.durationMillis());
+            node.put("model", msg.model());
+        }
+
+        mapper.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), root);
     }
 }

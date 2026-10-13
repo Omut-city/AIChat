@@ -1,5 +1,7 @@
 package omut.aichat.chat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ChatExporterTest {
+
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     @TempDir
     Path tmp;
@@ -196,5 +200,86 @@ class ChatExporterTest {
             String md = export(List.of(AIChatMessage.user(original)));
             assertThat(md).contains(original);
         }
+    }
+
+    @Nested
+    @DisplayName("JSON export")
+    class Json {
+
+        @Test
+        @DisplayName("Has exported timestamp and messages array")
+        void header() throws IOException {
+            JsonNode root = exportJson(List.of());
+            assertThat(root.get("exported").asText()).isNotBlank();
+            assertThat(root.get("messages").isArray()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Empty history produces empty messages array")
+        void empty() throws IOException {
+            JsonNode root = exportJson(List.of());
+            assertThat(root.get("messages")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("One object per message, in order")
+        void order() throws IOException {
+            AIChatMessage user = AIChatMessage.user("q");
+            AIChatMessage assistant = AIChatMessage.assistant("a", 1234L, "qwen2.5:7b");
+
+            JsonNode messages = exportJson(List.of(user, assistant)).get("messages");
+
+            assertThat(messages).hasSize(2);
+            assertThat(messages.get(0).get("role").asText()).isEqualTo("USER");
+            assertThat(messages.get(1).get("role").asText()).isEqualTo("ASSISTANT");
+        }
+
+        @Test
+        @DisplayName("USER message keeps id, text, null model")
+        void user() throws IOException {
+            AIChatMessage user = AIChatMessage.user("hello");
+            JsonNode node = exportJson(List.of(user)).get("messages").get(0);
+
+            assertThat(node.get("id").asText()).isEqualTo(user.id());
+            assertThat(node.get("text").asText()).isEqualTo("hello");
+            assertThat(node.get("model").isNull()).isTrue();
+            assertThat(node.get("durationMillis").asLong()).isZero();
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message keeps model and duration")
+        void assistant() throws IOException {
+            AIChatMessage a = AIChatMessage.assistant("hi", 1234L, "qwen2.5:7b");
+            JsonNode node = exportJson(List.of(a)).get("messages").get(0);
+
+            assertThat(node.get("role").asText()).isEqualTo("ASSISTANT");
+            assertThat(node.get("model").asText()).isEqualTo("qwen2.5:7b");
+            assertThat(node.get("durationMillis").asLong()).isEqualTo(1234L);
+        }
+
+        @Test
+        @DisplayName("SYSTEM message has null model")
+        void system() throws IOException {
+            JsonNode node = exportJson(List.of(AIChatMessage.system("prompt")))
+                    .get("messages").get(0);
+
+            assertThat(node.get("role").asText()).isEqualTo("SYSTEM");
+            assertThat(node.get("model").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("UTF-8 round-trip")
+        void utf8() throws IOException {
+            JsonNode node = exportJson(List.of(AIChatMessage.user("Привет, мир")))
+                    .get("messages").get(0);
+
+            assertThat(node.get("text").asText()).isEqualTo("Привет, мир");
+        }
+    }
+
+    private JsonNode exportJson(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.json");
+        ChatExporter.exportJson(history, file);
+        return JSON.readTree(file.toFile());
     }
 }
