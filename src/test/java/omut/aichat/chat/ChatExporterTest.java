@@ -277,9 +277,100 @@ class ChatExporterTest {
         }
     }
 
+    @Nested
+    @DisplayName("HTML export")
+    class Html {
+
+        @Test
+        @DisplayName("Starts with doctype and html tag")
+        void doctype() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).startsWith("<!DOCTYPE html>");
+            assertThat(html).contains("<html lang=\"en\">");
+            assertThat(html).contains("</html>");
+        }
+
+        @Test
+        @DisplayName("Has charset meta and title")
+        void head() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).contains("<meta charset=\"UTF-8\">");
+            assertThat(html).contains("<title>AIChat conversation</title>");
+        }
+
+        @Test
+        @DisplayName("Has exported timestamp")
+        void timestamp() throws IOException {
+            String html = exportHtml(List.of());
+            assertThat(html).contains("Exported: ");
+        }
+
+        @Test
+        @DisplayName("USER message uses .user class and 'You' role")
+        void user() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("hello")));
+            assertThat(html).contains("class=\"msg user\"");
+            assertThat(html).contains("<div class=\"role\">You</div>");
+            assertThat(html).contains("<div class=\"body\">hello</div>");
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message includes model name")
+        void assistantWithModel() throws IOException {
+            String html = exportHtml(List.of(
+                    AIChatMessage.assistant("hi", 0L, "qwen2.5:7b")));
+            assertThat(html).contains("class=\"msg assistant\"");
+            assertThat(html).contains("AI (qwen2.5:7b)");
+        }
+
+        @Test
+        @DisplayName("ASSISTANT message falls back to bare 'AI' when model is null")
+        void assistantNullModel() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.assistant("hi", 0L, null)));
+            assertThat(html).contains("<div class=\"role\">AI</div>");
+            assertThat(html).doesNotContain("AI (");
+        }
+
+        @Test
+        @DisplayName("SYSTEM message uses .system class")
+        void system() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.system("prompt")));
+            assertThat(html).contains("class=\"msg system\"");
+            assertThat(html).contains("prompt");
+        }
+
+        @Test
+        @DisplayName("HTML special characters are escaped")
+        void escaping() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("<script>alert(1)</script>")));
+            assertThat(html).doesNotContain("<script>");
+            assertThat(html).contains("&lt;script&gt;");
+        }
+
+        @Test
+        @DisplayName("Ampersand is escaped")
+        void ampersand() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("a & b")));
+            assertThat(html).contains("a &amp; b");
+        }
+
+        @Test
+        @DisplayName("UTF-8 round-trip")
+        void utf8() throws IOException {
+            String html = exportHtml(List.of(AIChatMessage.user("Привет, мир")));
+            assertThat(html).contains("Привет, мир");
+        }
+    }
+
     private JsonNode exportJson(List<AIChatMessage> history) throws IOException {
         Path file = tmp.resolve("chat.json");
         ChatExporter.exportJson(history, file);
         return JSON.readTree(file.toFile());
+    }
+
+    private String exportHtml(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.html");
+        ChatExporter.exportHtml(history, file);
+        return Files.readString(file, StandardCharsets.UTF_8);
     }
 }
