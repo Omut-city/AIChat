@@ -362,6 +362,47 @@ class ChatExporterTest {
         }
     }
 
+    @Nested
+    @DisplayName("PDF export")
+    class Pdf {
+
+        @Test
+        @DisplayName("Creates a file with %PDF- header")
+        void header() throws IOException {
+            Path file = exportPdf(List.of(AIChatMessage.user("hi")));
+
+            assertThat(file).exists();
+            byte[] bytes = Files.readAllBytes(file);
+            assertThat(bytes.length).isGreaterThan(100);
+            assertThat(new String(bytes, 0, 5, StandardCharsets.US_ASCII))
+                    .isEqualTo("%PDF-");
+        }
+
+        @Test
+        @DisplayName("Empty history still produces a valid PDF")
+        void empty() throws IOException {
+            Path file = exportPdf(List.of());
+
+            assertThat(file).exists();
+            byte[] bytes = Files.readAllBytes(file);
+            assertThat(bytes.length).isGreaterThan(100);
+            assertThat(new String(bytes, 0, 5, StandardCharsets.US_ASCII))
+                    .isEqualTo("%PDF-");
+        }
+
+        @Test
+        @DisplayName("Assorted roles and UTF-8 text do not break export")
+        void assortedRoles() throws IOException {
+            Path file = exportPdf(List.of(
+                    AIChatMessage.system("be concise"),
+                    AIChatMessage.user("Привет"),
+                    AIChatMessage.assistant("hi", 0L, "qwen2.5:7b")));
+
+            assertThat(file).exists();
+            assertThat(Files.size(file)).isGreaterThan(100);
+        }
+    }
+
     private JsonNode exportJson(List<AIChatMessage> history) throws IOException {
         Path file = tmp.resolve("chat.json");
         ChatExporter.exportJson(history, file);
@@ -372,5 +413,11 @@ class ChatExporterTest {
         Path file = tmp.resolve("chat.html");
         ChatExporter.exportHtml(history, file);
         return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    private Path exportPdf(List<AIChatMessage> history) throws IOException {
+        Path file = tmp.resolve("chat.pdf");
+        ChatExporter.exportPdf(history, file);
+        return file;
     }
 }

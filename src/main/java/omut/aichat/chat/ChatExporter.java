@@ -3,8 +3,14 @@ package omut.aichat.chat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Font;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfWriter;
 import omut.aichat.utils.TimeFormat;
 
+import java.awt.Color;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -120,6 +126,43 @@ public class ChatExporter {
 
         sb.append("</body>\n</html>\n");
         Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+    }
+
+    /** Exports the conversation to a PDF file. */
+    public static void exportPdf(List<AIChatMessage> history, Path file) throws IOException {
+        Document doc = new Document();
+        try {
+            PdfWriter.getInstance(doc, Files.newOutputStream(file));
+            doc.open();
+
+            Font titleFont = new Font(Font.HELVETICA, 16, Font.BOLD);
+            Font metaFont = new Font(Font.HELVETICA, 9, Font.ITALIC, new Color(120, 120, 120));
+            Font roleFont = new Font(Font.HELVETICA, 12, Font.BOLD);
+            Font bodyFont = new Font(Font.HELVETICA, 11, Font.NORMAL);
+
+            doc.add(new Paragraph("AIChat conversation", titleFont));
+            doc.add(new Paragraph("Exported: " + LocalDateTime.now().format(TIMESTAMP), metaFont));
+            doc.add(new Paragraph(" "));
+
+            for (AIChatMessage msg : history) {
+                doc.add(new Paragraph(roleHeader(msg), roleFont));
+                doc.add(new Paragraph(msg.text(), bodyFont));
+                doc.add(new Paragraph(" "));
+            }
+        } catch (DocumentException e) {
+            throw new IOException("Failed to write PDF", e);
+        } finally {
+            doc.close();
+        }
+    }
+
+    private static String roleHeader(AIChatMessage msg) {
+        return switch (msg.role()) {
+            case USER -> "You";
+            case ASSISTANT -> msg.model() != null && !msg.model().isBlank()
+                    ? "AI (" + msg.model() + ")" : "AI";
+            case SYSTEM -> "System";
+        };
     }
 
     private static void appendHtmlMsg(StringBuilder sb, String cls, String role, String text) {
