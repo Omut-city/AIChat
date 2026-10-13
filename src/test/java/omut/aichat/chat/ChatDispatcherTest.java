@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class ChatDispatcherTest {
 
@@ -258,8 +259,10 @@ class ChatDispatcherTest {
         @DisplayName("no listener means no crash")
         void empty() {
             ChatDispatcher d = new ChatDispatcher();
-            d.thinkingStarted();
-            d.message(AIChatMessage.user("hi"));
+            assertThatCode(() -> {
+                d.thinkingStarted();
+                d.message(AIChatMessage.user("hi"));
+            }).doesNotThrowAnyException();
         }
     }
 
