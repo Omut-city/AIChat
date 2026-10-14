@@ -1,18 +1,24 @@
 module omut.aichat {
-    requires org.commonmark;
-    requires org.jsoup;
-    requires javafx.web;
-    requires javafx.controls;
-    requires org.slf4j.simple;
-    requires langchain4j.ollama;
-    requires langchain4j.core;
-    requires com.fasterxml.jackson.databind;
-    requires org.slf4j;
-    requires atlantafx.base;
+    // JDK modules
     requires java.desktop;
     requires java.net.http;
+    requires jdk.httpserver;
     requires jdk.jsobject;
+
+    // Third-party modules
+    requires atlantafx.base;
+    requires com.fasterxml.jackson.databind;
     requires com.github.librepdf.openpdf;
+    requires langchain4j.core;
+    requires langchain4j.ollama;
+    requires org.commonmark;
+    requires org.jsoup;
+    requires org.slf4j;
+    requires org.slf4j.simple;
+
+    // JavaFX modules
+    requires javafx.controls;
+    requires javafx.web;
 
     exports omut.aichat;
     exports omut.aichat.chat;
