@@ -14,8 +14,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class OllamaLlmServiceTest {
 
@@ -38,17 +37,6 @@ class OllamaLlmServiceTest {
         if (server != null) {
             server.stop(0);
         }
-    }
-
-    private String baseUrl() {
-        return "http://127.0.0.1:" + server.getAddress().getPort();
-    }
-
-    private void respondWith(int status) {
-        server.createContext("/api/tags", exchange -> {
-            exchange.sendResponseHeaders(status, -1);
-            exchange.close();
-        });
     }
 
     @Nested
@@ -211,5 +199,48 @@ class OllamaLlmServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("blank");
         }
+    }
+
+    @Nested
+    @DisplayName("rebuildModel")
+    class RebuildModel {
+
+        @Test
+        @DisplayName("Keeps the current model after rebuild")
+        void keepsModel() {
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            service.rebuildModel();
+
+            assertThat(service.currentModel()).isEqualTo("qwen2.5:7b");
+        }
+
+        @Test
+        @DisplayName("Uses the latest config values on rebuild")
+        void usesLatestConfig() {
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            when(config.temperature()).thenReturn(1.5);
+            when(config.requestTimeoutMinutes()).thenReturn(30);
+
+            service.rebuildModel();
+
+            assertThat(service.currentModel()).isEqualTo("qwen2.5:7b");
+
+            verify(config, atLeast(2)).temperature();
+            verify(config, atLeast(2)).requestTimeoutMinutes();
+        }
+    }
+
+
+    private String baseUrl() {
+        return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private void respondWith(int status) {
+        server.createContext("/api/tags", exchange -> {
+            exchange.sendResponseHeaders(status, -1);
+            exchange.close();
+        });
     }
 }
