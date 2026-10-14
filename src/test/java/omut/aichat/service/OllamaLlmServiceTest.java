@@ -13,6 +13,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -174,6 +175,41 @@ class OllamaLlmServiceTest {
             OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
 
             assertThat(service.listModels()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("switchModel")
+    class SwitchModel {
+
+        @Test
+        @DisplayName("Sets current model and returns it")
+        void valid() {
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            service.switchModel("llama3.1:8b");
+
+            assertThat(service.currentModel()).isEqualTo("llama3.1:8b");
+        }
+
+        @Test
+        @DisplayName("Throws on null model name")
+        void nullRejected() {
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThatThrownBy(() -> service.switchModel(null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("blank");
+        }
+
+        @Test
+        @DisplayName("Throws on blank model name")
+        void blankRejected() {
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThatThrownBy(() -> service.switchModel("   "))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("blank");
         }
     }
 }
