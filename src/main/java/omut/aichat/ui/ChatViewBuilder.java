@@ -36,6 +36,10 @@ public class ChatViewBuilder {
     public final Label lastResponseLabel = new Label("");
     public final Label speedLabel = new Label("");
     public final Label noticeLabel = new Label("");
+    public final TextField searchField = new TextField();
+    public final Button searchPrevButton = new Button("▲");
+    public final Button searchNextButton = new Button("▼");
+    public final Label searchCounter = new Label("");
 
     public final Menu viewMenu = new Menu("View");
     public final MenuBar menuBar = new MenuBar();
@@ -88,6 +92,15 @@ public class ChatViewBuilder {
         modelSelector.setDisable(true);
         modelSelector.setPrefWidth(200);
 
+        searchField.setPromptText("Search...");
+        searchField.setPrefWidth(160);
+        searchPrevButton.setDisable(true);
+        searchNextButton.setDisable(true);
+        searchPrevButton.setFocusTraversable(false);
+        searchNextButton.setFocusTraversable(false);
+        searchCounter.getStyleClass().add("muted");
+        searchCounter.setMinWidth(60);
+
         Region toolbarSpacer = new Region();
         HBox.setHgrow(toolbarSpacer, Priority.ALWAYS);
 
@@ -99,7 +112,12 @@ public class ChatViewBuilder {
                 copyLastButton,
                 saveButton,
                 checkButton,
-                settingsButton
+                settingsButton,
+                new Separator(),
+                searchField,
+                searchPrevButton,
+                searchNextButton,
+                searchCounter
         );
 
         chatView.setContextMenuEnabled(false);
