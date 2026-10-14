@@ -577,6 +577,7 @@ class ChatSessionTest {
 
             session.switchServer("srv-abcd1234");
             awaitEvent("notice:SUCCESS");
+            awaitEvent("status:true");
 
             verify(config).setActiveServer("srv-abcd1234");
             verify(llm).rebuildModel();
