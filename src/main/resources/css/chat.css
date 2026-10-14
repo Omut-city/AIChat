@@ -160,3 +160,24 @@ body.theme-dark .msg-context-menu-item {
 body.theme-dark .msg-context-menu-item:hover {
     background: #2d333b;
 }
+
+mark.search-match {
+    background-color: #fff59d;
+    color: inherit;
+    padding: 0;
+}
+
+mark.search-match.current {
+    background-color: #ffab40;
+    outline: 1px solid #e65100;
+}
+
+body.theme-dark mark.search-match {
+    background-color: #6b5900;
+    color: #fff;
+}
+
+body.theme-dark mark.search-match.current {
+    background-color: #b26a00;
+    outline: 1px solid #ffb74d;
+}
