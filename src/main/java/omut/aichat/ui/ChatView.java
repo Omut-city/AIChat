@@ -25,6 +25,7 @@ import netscape.javascript.*;
 import omut.aichat.config.AppConfig;
 import omut.aichat.config.AppSettings;
 import omut.aichat.utils.TimeFormat;
+import omut.aichat.utils.UrlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -649,13 +650,6 @@ public class ChatView implements ChatListener {
         String url = config.serverBaseUrl(id);
         if (url == null || url.isBlank()) return name + ", unknown";
 
-        String host;
-        try {
-            host = java.net.URI.create(url).getHost();
-            if (host == null) host = url;
-        } catch (IllegalArgumentException e) {
-            host = url;
-        }
-        return name + ", " + host;
+        return name + ", " + UrlParser.host(url);
     }
 }

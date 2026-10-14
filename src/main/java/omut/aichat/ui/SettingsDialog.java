@@ -12,6 +12,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import omut.aichat.config.AppConfig;
 import omut.aichat.config.AppSettings;
+import omut.aichat.utils.UrlParser;
 
 public class SettingsDialog extends Dialog<AppSettings> {
 
@@ -283,15 +284,15 @@ public class SettingsDialog extends Dialog<AppSettings> {
     private String hostOf(String serverId) {
         String url = config.serverBaseUrl(serverId);
         if (url == null) return "";
-        BaseUrlValidator.Parts parts = BaseUrlValidator.split(url);
+        UrlParser.Parsed parts = UrlParser.parse(url);
         return parts != null ? parts.host() : "";
     }
 
     private int portOf(String serverId) {
         String url = config.serverBaseUrl(serverId);
-        if (url == null) return 11434;
-        BaseUrlValidator.Parts parts = BaseUrlValidator.split(url);
-        return parts != null ? parts.port() : 11434;
+        if (url == null) return UrlParser.DEFAULT_PORT;
+        UrlParser.Parsed parts = UrlParser.parse(url);
+        return parts != null ? parts.port() : UrlParser.DEFAULT_PORT;
     }
 
     private static void addRow(GridPane grid, int row, String label, Node field) {
