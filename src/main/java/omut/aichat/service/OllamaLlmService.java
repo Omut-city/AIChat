@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 public class OllamaLlmService implements LlmService {
 
@@ -33,12 +34,31 @@ public class OllamaLlmService implements LlmService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final AppConfig config;
+    private final Function<String, StreamingChatModel> modelFactory;
     private volatile String currentModel;
     private volatile StreamingChatModel streamingModel;
 
     public OllamaLlmService(AppConfig config, String initialModel) {
+        this(config, initialModel, name -> buildModel(config, name));
+    }
+
+    /** Package-private constructor for tests with a mock factory. */
+    OllamaLlmService(AppConfig config, String initialModel,
+                     Function<String, StreamingChatModel> modelFactory) {
         this.config = config;
+        this.modelFactory = modelFactory;
         switchModel(initialModel);
+    }
+
+    private static StreamingChatModel buildModel(AppConfig config, String modelName) {
+        return OllamaStreamingChatModel.builder()
+                .baseUrl(config.getBaseUrl())
+                .modelName(modelName)
+                .timeout(Duration.ofMinutes(config.requestTimeoutMinutes()))
+                .temperature(config.temperature())
+                .logRequests(true)
+                .logResponses(false)
+                .build();
     }
 
     @Override
@@ -82,15 +102,7 @@ public class OllamaLlmService implements LlmService {
             throw new IllegalArgumentException("Model name must not be blank");
         }
         this.currentModel = modelName;
-
-        this.streamingModel = OllamaStreamingChatModel.builder()
-                .baseUrl(config.getBaseUrl())
-                .modelName(modelName)
-                .timeout(Duration.ofMinutes(config.requestTimeoutMinutes()))
-                .temperature(config.temperature())
-                .logRequests(true)
-                .logResponses(false)
-                .build();
+        this.streamingModel = modelFactory.apply(modelName);
     }
 
     @Override
