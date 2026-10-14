@@ -1,9 +1,9 @@
 package omut.aichat.config;
 
+import omut.aichat.utils.UrlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -82,7 +82,7 @@ public class AppConfig {
      * resets the active server's host/port to the bundled defaults.
      */
     public void setBaseUrl(String baseUrl) {
-        String normalized = normalizeUrlOrNull(baseUrl);
+        String normalized = UrlParser.normalize(baseUrl);
         if (normalized == null) {
             resetActiveServerToDefaults();
         } else {
@@ -395,13 +395,14 @@ public class AppConfig {
                 ? legacy
                 : defaults.baseUrl();
 
-        ParsedUrl parsed = parseUrl(source);
+        UrlParser.Parsed parsed = UrlParser.parse(source);
         if (parsed == null) {
-            parsed = parseUrl(defaults.baseUrl());
+            parsed = UrlParser.parse(defaults.baseUrl());
         }
         if (parsed == null) {
             log.warn("Cannot parse bundled default base URL: {}", defaults.baseUrl());
-            parsed = new ParsedUrl(DEFAULT_PROTOCOL, "127.0.0.1", 11434);
+            parsed = new UrlParser.Parsed(
+                    UrlParser.DEFAULT_PROTOCOL, "127.0.0.1", UrlParser.DEFAULT_PORT);
         }
 
         userConfig.setServerField(
@@ -438,14 +439,14 @@ public class AppConfig {
                     LOCAL_SERVER_ID, ConfigKeys.SERVER_PROTOCOL_SUFFIX, DEFAULT_PROTOCOL);
         }
         if (userConfig.getServerField(LOCAL_SERVER_ID, ConfigKeys.SERVER_HOST_SUFFIX) == null) {
-            ParsedUrl d = parseUrl(defaults.baseUrl());
+            UrlParser.Parsed d = UrlParser.parse(defaults.baseUrl());
             String host = (d != null) ? d.host() : "127.0.0.1";
             userConfig.setServerField(
                     LOCAL_SERVER_ID, ConfigKeys.SERVER_HOST_SUFFIX, host);
         }
         if (userConfig.getServerField(LOCAL_SERVER_ID, ConfigKeys.SERVER_PORT_SUFFIX) == null) {
-            ParsedUrl d = parseUrl(defaults.baseUrl());
-            int port = (d != null) ? d.port() : 11434;
+            UrlParser.Parsed d = UrlParser.parse(defaults.baseUrl());
+            int port = (d != null) ? d.port() : UrlParser.DEFAULT_PORT;
             userConfig.setServerField(
                     LOCAL_SERVER_ID, ConfigKeys.SERVER_PORT_SUFFIX, Integer.toString(port));
         }
@@ -526,13 +527,13 @@ public class AppConfig {
 
         if (host == null || host.isBlank()) return null;
         if (protocol == null || protocol.isBlank()) protocol = DEFAULT_PROTOCOL;
-        if (port == null || port.isBlank()) port = "11434";
+        if (port == null || port.isBlank()) port = String.valueOf(UrlParser.DEFAULT_PORT);
 
         return protocol + "://" + host + ":" + port;
     }
 
     private void parseAndStoreActiveServer(String url) {
-        ParsedUrl parsed = parseUrl(url);
+        UrlParser.Parsed parsed = UrlParser.parse(url);
         if (parsed == null) {
             log.warn("Cannot parse URL for active server: {}", url);
             return;
@@ -547,7 +548,7 @@ public class AppConfig {
     }
 
     private void resetActiveServerToDefaults() {
-        ParsedUrl parsed = parseUrl(defaults.baseUrl());
+        UrlParser.Parsed parsed = UrlParser.parse(defaults.baseUrl());
         if (parsed == null) return;
         String id = activeServerId();
         userConfig.setServerField(
@@ -582,42 +583,6 @@ public class AppConfig {
         return defaults.attachMaxChars();
     }
 
-    private static String normalizeUrlOrNull(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-        String url = raw.trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "http://" + url;
-        }
-        try {
-            URI uri = URI.create(url);
-            String host = uri.getHost();
-            if (host == null || host.isBlank()) return null;
-            return url;
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private static ParsedUrl parseUrl(String url) {
-        if (url == null || url.isBlank()) return null;
-
-        String normalized = url.trim();
-        if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
-            normalized = "http://" + normalized;
-        }
-        try {
-            URI uri = URI.create(normalized);
-            String protocol = uri.getScheme();
-            String host = uri.getHost();
-            if (protocol == null || host == null || host.isBlank()) return null;
-            int port = uri.getPort();
-            if (port <= 0) port = 11434;
-            return new ParsedUrl(protocol, host, port);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
     private static String generateId(String prefix, List<String> existing) {
         for (int attempt = 0; attempt < 16; attempt++) {
             String candidate = prefix + "-"
@@ -627,6 +592,4 @@ public class AppConfig {
         throw new IllegalStateException(
                 "Could not allocate a unique id with prefix '" + prefix + "'");
     }
-
-    private record ParsedUrl(String protocol, String host, int port) {}
 }
