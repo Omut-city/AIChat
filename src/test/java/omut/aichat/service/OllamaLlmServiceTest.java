@@ -1,6 +1,13 @@
 package omut.aichat.service;
 
 import com.sun.net.httpserver.HttpServer;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import omut.aichat.chat.AIChatMessage;
+import omut.aichat.chat.LlmResponse;
+import omut.aichat.chat.StreamingCallback;
 import omut.aichat.config.AppConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +18,11 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -232,6 +244,125 @@ class OllamaLlmServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("askStreaming")
+    class AskStreaming {
+
+        /**
+         * Builds a service whose streaming model completes synchronously
+         * by emitting the given chunks then a final response.
+         */
+        private OllamaLlmService serviceWithStream(String... chunks) {
+            StreamingChatModel model = mock(StreamingChatModel.class);
+
+            doAnswer(inv -> {
+                StreamingChatResponseHandler handler = inv.getArgument(1);
+                for (String chunk : chunks) {
+                    handler.onPartialResponse(chunk);
+                }
+                ChatResponse response = ChatResponse.builder()
+                        .aiMessage(AiMessage.from(String.join("", chunks)))
+                        .build();
+                handler.onCompleteResponse(response);
+                return null;
+            }).when(model).chat(anyList(), any());
+
+            return new OllamaLlmService(config, "qwen2.5:7b", name -> model);
+        }
+
+        private OllamaLlmService serviceWithError(Throwable error) {
+            StreamingChatModel model = mock(StreamingChatModel.class);
+
+            doAnswer(inv -> {
+                StreamingChatResponseHandler handler = inv.getArgument(1);
+                handler.onError(error);
+                return null;
+            }).when(model).chat(anyList(), any());
+
+            return new OllamaLlmService(config, "qwen2.5:7b", name -> model);
+        }
+
+        @Test
+        @DisplayName("Accumulates chunks and delivers onComplete with text")
+        void happyPath() {
+            OllamaLlmService service = serviceWithStream("Hello", " ", "world");
+
+            List<AIChatMessage> history = List.of(AIChatMessage.user("hi"));
+            AtomicReference<LlmResponse> result = new AtomicReference<>();
+            CountDownLatch latch = new CountDownLatch(1);
+
+            service.askStreaming(history, new StreamingCallback() {
+                @Override public void onToken(String chunk, String fullText) {}
+                @Override public void onComplete(LlmResponse response) {
+                    result.set(response);
+                    latch.countDown();
+                }
+                @Override public void onError(Throwable error) {
+                    latch.countDown();
+                }
+            });
+
+            assertThat(await(latch)).isTrue();
+            assertThat(result.get()).isNotNull();
+            assertThat(result.get().text()).isEqualTo("Hello world");
+        }
+
+        @Test
+        @DisplayName("Emits onToken for every chunk with growing fullText")
+        void tokenAccumulation() {
+            OllamaLlmService service = serviceWithStream("A", "B", "C");
+
+            List<AIChatMessage> history = List.of(AIChatMessage.user("hi"));
+            List<String> chunks = new CopyOnWriteArrayList<>();
+            List<String> fullTexts = new CopyOnWriteArrayList<>();
+            CountDownLatch latch = new CountDownLatch(1);
+
+            service.askStreaming(history, new StreamingCallback() {
+                @Override public void onToken(String chunk, String fullText) {
+                    chunks.add(chunk);
+                    fullTexts.add(fullText);
+                }
+                @Override public void onComplete(LlmResponse response) { latch.countDown(); }
+                @Override public void onError(Throwable error) { latch.countDown(); }
+            });
+
+            assertThat(await(latch)).isTrue();
+            assertThat(chunks).containsExactly("A", "B", "C");
+            assertThat(fullTexts).containsExactly("A", "AB", "ABC");
+        }
+
+        @Test
+        @DisplayName("Propagates onError from the model")
+        void error() {
+            OllamaLlmService service = serviceWithError(new RuntimeException("boom"));
+
+            List<AIChatMessage> history = List.of(AIChatMessage.user("hi"));
+            AtomicReference<Throwable> captured = new AtomicReference<>();
+            CountDownLatch latch = new CountDownLatch(1);
+
+            service.askStreaming(history, new StreamingCallback() {
+                @Override public void onToken(String chunk, String fullText) {}
+                @Override public void onComplete(LlmResponse response) { latch.countDown(); }
+                @Override public void onError(Throwable error) {
+                    captured.set(error);
+                    latch.countDown();
+                }
+            });
+
+            assertThat(await(latch)).isTrue();
+            assertThat(captured.get()).isNotNull();
+            assertThat(captured.get()).hasMessage("boom");
+        }
+
+        private boolean await(CountDownLatch latch) {
+            try {
+                return latch.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+    }
 
     private String baseUrl() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
