@@ -58,6 +58,57 @@ public class ChatScripts {
         execute("scrollToBottom();");
     }
 
+    /**
+     * Highlights every occurrence of {@code query} in the transcript.
+     * Returns the number of matches, or 0 if the query is blank or the
+     * JS engine is not yet ready.
+     * <p>
+     * Must be called on the JavaFX Application Thread.
+     */
+    public int highlightMatches(String query) {
+        if (query == null || query.isBlank()) {
+            clearHighlight();
+            return 0;
+        }
+        String escaped = MarkdownRenderer.jsStringLiteral(query);
+        try {
+            Object result = engine.executeScript(
+                    "highlightMatches(" + escaped + ");");
+            if (result instanceof Number n) {
+                return n.intValue();
+            }
+            return 0;
+        } catch (Exception e) {
+            log.warn("highlightMatches failed: {}", e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Removes every search highlight from the transcript.
+     * Must be called on the JavaFX Application Thread.
+     */
+    public void clearHighlight() {
+        execute("clearHighlight();");
+    }
+
+    /**
+     * Scrolls to the match at the given 0-based index and marks it as
+     * current. Returns {@code true} if the index was valid.
+     * <p>
+     * Must be called on the JavaFX Application Thread.
+     */
+    public boolean scrollToMatch(int index) {
+        try {
+            Object result = engine.executeScript(
+                    "scrollToMatch(" + index + ");");
+            return Boolean.TRUE.equals(result);
+        } catch (Exception e) {
+            log.warn("scrollToMatch failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
     private void execute(String script) {
         try {
             engine.executeScript(script);

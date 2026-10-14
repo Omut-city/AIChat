@@ -340,3 +340,126 @@ function isAtBottom() {
 function scrollToBottom() {
     window.scrollTo(0, document.body.scrollHeight);
 }
+
+/* -------------------------------------------------------------- *
+ *  Search: highlight matches in the transcript                   *
+ * -------------------------------------------------------------- */
+
+var _searchMatches = [];
+var _currentMatchIndex = -1;
+
+/**
+ * Wraps every occurrence of `query` in the transcript text nodes
+ * with <mark class="search-match">. Clears any previous highlight
+ * first. Returns the number of matches.
+ */
+function highlightMatches(query) {
+    clearHighlight();
+    if (!query || !query.trim()) return 0;
+
+    var needle = query.toLowerCase();
+    var walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: function (node) {
+                // Skip text inside our own <mark> or .search-counter
+                if (node.parentNode &&
+                    node.parentNode.classList &&
+                    node.parentNode.classList.contains('search-match')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                // Skip script/style
+                var p = node.parentNode;
+                if (p && (p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE')) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        }
+    );
+
+    var textNodes = [];
+    var n;
+    while ((n = walker.nextNode())) {
+        textNodes.push(n);
+    }
+
+    textNodes.forEach(function (textNode) {
+        var text = textNode.nodeValue;
+        var lower = text.toLowerCase();
+        var matches = [];
+        var from = 0;
+        while (true) {
+            var idx = lower.indexOf(needle, from);
+            if (idx < 0) break;
+            matches.push(idx);
+            from = idx + needle.length;
+        }
+        if (matches.length === 0) return;
+
+        // Split textNode into: text | mark | text | mark | ...
+        var frag = document.createDocumentFragment();
+        var cursor = 0;
+        matches.forEach(function (idx) {
+            if (idx > cursor) {
+                frag.appendChild(document.createTextNode(text.substring(cursor, idx)));
+            }
+            var mark = document.createElement('mark');
+            mark.className = 'search-match';
+            mark.textContent = text.substring(idx, idx + needle.length);
+            frag.appendChild(mark);
+            _searchMatches.push(mark);
+            cursor = idx + needle.length;
+        });
+        if (cursor < text.length) {
+            frag.appendChild(document.createTextNode(text.substring(cursor)));
+        }
+        textNode.parentNode.replaceChild(frag, textNode);
+    });
+
+    return _searchMatches.length;
+}
+
+/**
+ * Removes all <mark class="search-match"> elements, restoring the
+ * original text. Safe to call when nothing is highlighted.
+ */
+function clearHighlight() {
+    document.querySelectorAll('mark.search-match').forEach(function (mark) {
+        var parent = mark.parentNode;
+        if (!parent) return;
+        while (mark.firstChild) {
+            parent.insertBefore(mark.firstChild, mark);
+        }
+        parent.removeChild(mark);
+    });
+    // Merge adjacent text nodes so the DOM stays clean
+    document.body.normalize();
+
+    _searchMatches = [];
+    _currentMatchIndex = -1;
+}
+
+/**
+ * Scrolls to the match at the given index (0-based) and marks it
+ * as "current". Returns true if the index was valid.
+ */
+function scrollToMatch(index) {
+    if (index < 0 || index >= _searchMatches.length) return false;
+
+    if (_currentMatchIndex >= 0 && _currentMatchIndex < _searchMatches.length) {
+        _searchMatches[_currentMatchIndex].classList.remove('current');
+    }
+
+    var mark = _searchMatches[index];
+    mark.classList.add('current');
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    _currentMatchIndex = index;
+    return true;
+}
+
+/** Returns the number of matches currently highlighted. */
+function searchMatchCount() {
+    return _searchMatches.length;
+}

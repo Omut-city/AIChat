@@ -58,6 +58,9 @@ public class ChatView implements ChatListener {
     private boolean suppressServerEvent = false;
     private boolean suppressPromptEvent = false;
 
+    private int searchTotalMatches = 0;
+    private int searchCurrentIndex = -1;
+
     public ChatView(
             ChatSession session,
             AppConfig config,
@@ -87,6 +90,29 @@ public class ChatView implements ChatListener {
         view.regenerateButton.setOnAction(_ -> session.regenerateLast());
         view.settingsButton.setOnAction(_ -> onSettings());
         view.refreshModelsMenuItem.setOnAction(_ -> session.loadModels());
+
+        view.searchField.textProperty().addListener((_, _, newText) ->
+                onSearchQueryChanged(newText));
+
+        view.searchField.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                if (event.isShiftDown()) {
+                    onSearchPrev();
+                } else {
+                    onSearchNext();
+                }
+                event.consume();
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                view.searchField.clear();
+                view.inputField.requestFocus();
+                event.consume();
+            }
+        });
+
+        view.searchPrevButton.setOnAction(_ -> onSearchPrev());
+        view.searchNextButton.setOnAction(_ -> onSearchNext());
+
+
 
         view.promptSelector.setOnAction(_ -> {
             if (suppressPromptEvent) return;
@@ -266,6 +292,10 @@ public class ChatView implements ChatListener {
         Platform.runLater(() -> {
             reloadTemplate();
             view.noticeLabel.setText("");
+            view.searchField.clear();
+            searchTotalMatches = 0;
+            searchCurrentIndex = -1;
+            updateSearchControls();
         });
     }
 
@@ -501,9 +531,60 @@ public class ChatView implements ChatListener {
         });
     }
 
+    private void onSearchQueryChanged(String query) {
+        searchTotalMatches = scripts.highlightMatches(query);
+        searchCurrentIndex = searchTotalMatches > 0 ? 0 : -1;
+
+        if (searchCurrentIndex >= 0) {
+            scripts.scrollToMatch(0);
+        }
+        updateSearchControls();
+    }
+
+    private void onSearchNext() {
+        if (searchTotalMatches == 0) return;
+        searchCurrentIndex = (searchCurrentIndex + 1) % searchTotalMatches;
+        scripts.scrollToMatch(searchCurrentIndex);
+        updateSearchControls();
+    }
+
+    private void onSearchPrev() {
+        if (searchTotalMatches == 0) return;
+        searchCurrentIndex = (searchCurrentIndex - 1 + searchTotalMatches)
+                % searchTotalMatches;
+        scripts.scrollToMatch(searchCurrentIndex);
+        updateSearchControls();
+    }
+
+    private void updateSearchControls() {
+        boolean hasMatches = searchTotalMatches > 0;
+        view.searchPrevButton.setDisable(!hasMatches);
+        view.searchNextButton.setDisable(!hasMatches);
+
+        if (searchTotalMatches == 0) {
+            view.searchCounter.setText("");
+        } else {
+            view.searchCounter.setText(
+                    (searchCurrentIndex + 1) + " of " + searchTotalMatches);
+        }
+    }
+
     private void renderTranscript() {
         String json = TranscriptJson.toJson(session.getHistory(), markdown);
         scripts.renderTranscript(json);
+        reapplySearchIfActive();
+    }
+
+    private void reapplySearchIfActive() {
+        String query = view.searchField.getText();
+        if (query == null || query.isBlank()) return;
+
+        searchTotalMatches = scripts.highlightMatches(query);
+        searchCurrentIndex = searchTotalMatches > 0 ? 0 : -1;
+        if (searchCurrentIndex >= 0) {
+            scripts.scrollToMatch(0);
+        }
+        updateSearchControls();
     }
 
     private void reloadTemplate() {
