@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -91,6 +92,88 @@ class OllamaLlmServiceTest {
             OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
 
             assertThat(service.isAvailable()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("listModels")
+    class ListModels {
+
+        @Test
+        @DisplayName("Parses model names from /api/tags response")
+        void parsesNames() {
+            server.createContext("/api/tags", exchange -> {
+                String body = """
+                        {
+                          "models": [
+                            {"name": "qwen2.5:7b"},
+                            {"name": "llama3.1:8b"},
+                            {"name": "gemma2:2b"}
+                          ]
+                        }
+                        """;
+                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+                exchange.close();
+            });
+
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThat(service.listModels())
+                    .containsExactly("qwen2.5:7b", "llama3.1:8b", "gemma2:2b");
+        }
+
+        @Test
+        @DisplayName("Returns empty list when models array is empty")
+        void emptyModels() {
+            server.createContext("/api/tags", exchange -> {
+                byte[] bytes = "{\"models\":[]}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+                exchange.close();
+            });
+
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThat(service.listModels()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Returns empty list on server error")
+        void serverError() {
+            respondWith(500);
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThat(service.listModels()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Returns empty list on malformed JSON")
+        void malformedJson() {
+            server.createContext("/api/tags", exchange -> {
+                byte[] bytes = "not json".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+                exchange.close();
+            });
+
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThat(service.listModels()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Returns empty list when connection refused")
+        void connectionRefused() {
+            int port = server.getAddress().getPort();
+            server.stop(0);
+            server = null;
+
+            when(config.getBaseUrl()).thenReturn("http://127.0.0.1:" + port);
+            OllamaLlmService service = new OllamaLlmService(config, "qwen2.5:7b");
+
+            assertThat(service.listModels()).isEmpty();
         }
     }
 }
