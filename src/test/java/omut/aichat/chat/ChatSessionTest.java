@@ -471,6 +471,17 @@ class ChatSessionTest {
         }
 
         @Test
+        @DisplayName("Emits historyChanged after updating the prompt")
+        void emitsHistoryChanged() throws Exception {
+            when(config.systemPrompt()).thenReturn("new");
+
+            session.setSystemPrompt("new");
+            awaitEvent("notice:SUCCESS");
+
+            assertThat(listener.events).contains("historyChanged");
+        }
+
+        @Test
         @DisplayName("Replaces the existing SYSTEM message in place")
         void replace() throws Exception {
             when(config.systemPrompt()).thenReturn("old");
@@ -628,6 +639,18 @@ class ChatSessionTest {
             assertThat(listener.lastNotice.get())
                     .isEqualTo("Switched to prompt: Code reviewer");
             assertThat(listener.lastNoticeLevel.get()).isEqualTo(NoticeLevel.SUCCESS);
+        }
+
+        @Test
+        @DisplayName("Emits historyChanged after swapping the prompt")
+        void emitsHistoryChanged() throws Exception {
+            when(config.promptName("prm-x")).thenReturn("X");
+            when(config.systemPrompt()).thenReturn("new prompt");
+
+            session.switchPrompt("prm-x");
+            awaitEvent("notice:SUCCESS");
+
+            assertThat(listener.events).contains("historyChanged");
         }
 
         @Test

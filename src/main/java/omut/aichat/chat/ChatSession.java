@@ -331,6 +331,7 @@ public class ChatSession implements ChatCommands {
             try {
                 config.setActivePrompt(promptId);
                 applySystemPromptToHistory(config.systemPrompt());
+                dispatcher.historyChanged();
                 dispatcher.notice(
                         "Switched to prompt: " + config.promptName(promptId),
                         NoticeLevel.SUCCESS);
@@ -350,6 +351,7 @@ public class ChatSession implements ChatCommands {
             try {
                 config.setSystemPrompt(prompt);
                 applySystemPromptToHistory(config.systemPrompt());
+                dispatcher.historyChanged();
                 dispatcher.notice("System prompt updated.", NoticeLevel.SUCCESS);
             } catch (Exception e) {
                 dispatcher.notice("Failed to update system prompt: " + e.getMessage(),

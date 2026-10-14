@@ -415,6 +415,8 @@ public class ChatView implements ChatListener {
     }
 
     private void onSettings() {
+        String promptBefore = config.systemPrompt();
+
         AppSettings current = new AppSettings(
                 config.getBaseUrl(),
                 config.temperature(),
@@ -432,6 +434,10 @@ public class ChatView implements ChatListener {
         AppSettings result = ChatDialogs.editSettings(window(), current, defaults, config);
         if (result != null) {
             session.applySettings(result);
+
+            if (!promptBefore.equals(config.systemPrompt())) {
+                session.setSystemPrompt(config.systemPrompt());
+            }
         }
         refreshPromptSelector();
         refreshServerSelector();
